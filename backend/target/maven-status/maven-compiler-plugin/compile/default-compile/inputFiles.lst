@@ -1,0 +1,11 @@
+c:\Users\bhuva\Downloads\project-bolt-github-kqfaysnh\backend\src\main\java\com\wealthwise\controller\FundController.java
+c:\Users\bhuva\Downloads\project-bolt-github-kqfaysnh\backend\src\main\java\com\wealthwise\model\User.java
+c:\Users\bhuva\Downloads\project-bolt-github-kqfaysnh\backend\src\main\java\com\wealthwise\service\MfApiService.java
+c:\Users\bhuva\Downloads\project-bolt-github-kqfaysnh\backend\src\main\java\com\wealthwise\repository\UserRepository.java
+c:\Users\bhuva\Downloads\project-bolt-github-kqfaysnh\backend\src\main\java\com\wealthwise\security\SecurityConfig.java
+c:\Users\bhuva\Downloads\project-bolt-github-kqfaysnh\backend\src\main\java\com\wealthwise\WealthWiseApplication.java
+c:\Users\bhuva\Downloads\project-bolt-github-kqfaysnh\backend\src\main\java\com\wealthwise\controller\PortfolioController.java
+c:\Users\bhuva\Downloads\project-bolt-github-kqfaysnh\backend\src\main\java\com\wealthwise\security\SupabaseJwtFilter.java
+c:\Users\bhuva\Downloads\project-bolt-github-kqfaysnh\backend\src\main\java\com\wealthwise\config\AppJwtFilter.java
+c:\Users\bhuva\Downloads\project-bolt-github-kqfaysnh\backend\src\main\java\com\wealthwise\controller\AuthController.java
+c:\Users\bhuva\Downloads\project-bolt-github-kqfaysnh\backend\src\main\java\com\wealthwise\security\JwtService.java

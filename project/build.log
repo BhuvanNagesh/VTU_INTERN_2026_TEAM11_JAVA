@@ -1,0 +1,224 @@
+WARNING: A restricted method in java.lang.System has been called
+WARNING: java.lang.System::load has been called by org.fusesource.jansi.internal.JansiLoader in an unnamed module (file:/C:/Users/bhuva/AppData/Local/Temp/maven/apache-maven-3.9.6/lib/jansi-2.4.0.jar)
+WARNING: Use --enable-native-access=ALL-UNNAMED to avoid a warning for callers in this module
+WARNING: Restricted methods will be blocked in a future release unless native access is enabled
+
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::objectFieldOffset has been called by com.google.common.util.concurrent.AbstractFuture$UnsafeAtomicHelper (file:/C:/Users/bhuva/AppData/Local/Temp/maven/apache-maven-3.9.6/lib/guava-32.0.1-jre.jar)
+WARNING: Please consider reporting this to the maintainers of class com.google.common.util.concurrent.AbstractFuture$UnsafeAtomicHelper
+WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+[INFO] Scanning for projects...
+[INFO] 
+[INFO] -----------------< com.wealthwise:wealthwise-backend >------------------
+[INFO] Building WealthWise Backend 0.0.1-SNAPSHOT
+[INFO]   from pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] 
+[INFO] --- resources:3.3.1:resources (default-resources) @ wealthwise-backend ---
+[INFO] Copying 1 resource from src\main\resources to target\classes
+[INFO] Copying 0 resource from src\main\resources to target\classes
+[INFO] 
+[INFO] --- compiler:3.11.0:compile (default-compile) @ wealthwise-backend ---
+[INFO] Changes detected - recompiling the module! :source
+[INFO] Compiling 11 source files with javac [debug release 17] to target\classes
+[INFO] /c:/Users/bhuva/Downloads/project-bolt-github-kqfaysnh/backend/src/main/java/com/wealthwise/security/JwtService.java: c:\Users\bhuva\Downloads\project-bolt-github-kqfaysnh\backend\src\main\java\com\wealthwise\security\JwtService.java uses or overrides a deprecated API.
+[INFO] /c:/Users/bhuva/Downloads/project-bolt-github-kqfaysnh/backend/src/main/java/com/wealthwise/security/JwtService.java: Recompile with -Xlint:deprecation for details.
+[INFO] -------------------------------------------------------------
+[ERROR] COMPILATION ERROR : 
+[INFO] -------------------------------------------------------------
+[ERROR] /c:/Users/bhuva/Downloads/project-bolt-github-kqfaysnh/backend/src/main/java/com/wealthwise/config/AppJwtFilter.java:[58,13] cannot find symbol
+  symbol:   variable log
+  location: class com.wealthwise.config.AppJwtFilter
+[ERROR] /c:/Users/bhuva/Downloads/project-bolt-github-kqfaysnh/backend/src/main/java/com/wealthwise/security/JwtService.java:[49,20] cannot find symbol
+  symbol:   method parserBuilder()
+  location: class io.jsonwebtoken.Jwts
+[ERROR] /c:/Users/bhuva/Downloads/project-bolt-github-kqfaysnh/backend/src/main/java/com/wealthwise/service/MfApiService.java:[38,13] cannot find symbol
+  symbol:   variable log
+  location: class com.wealthwise.service.MfApiService
+[ERROR] /c:/Users/bhuva/Downloads/project-bolt-github-kqfaysnh/backend/src/main/java/com/wealthwise/service/MfApiService.java:[43,9] cannot find symbol
+  symbol:   variable log
+  location: class com.wealthwise.service.MfApiService
+[ERROR] /c:/Users/bhuva/Downloads/project-bolt-github-kqfaysnh/backend/src/main/java/com/wealthwise/service/MfApiService.java:[52,13] cannot find symbol
+  symbol:   variable log
+  location: class com.wealthwise.service.MfApiService
+[ERROR] /c:/Users/bhuva/Downloads/project-bolt-github-kqfaysnh/backend/src/main/java/com/wealthwise/service/MfApiService.java:[68,13] cannot find symbol
+  symbol:   variable log
+  location: class com.wealthwise.service.MfApiService
+[ERROR] /c:/Users/bhuva/Downloads/project-bolt-github-kqfaysnh/backend/src/main/java/com/wealthwise/controller/AuthController.java:[48,45] cannot find symbol
+  symbol:   method getEmail()
+  location: variable req of type com.wealthwise.controller.AuthController.SignUpRequest
+[ERROR] /c:/Users/bhuva/Downloads/project-bolt-github-kqfaysnh/backend/src/main/java/com/wealthwise/controller/AuthController.java:[54,25] cannot find symbol
+  symbol:   method builder()
+  location: class com.wealthwise.model.User
+[ERROR] /c:/Users/bhuva/Downloads/project-bolt-github-kqfaysnh/backend/src/main/java/com/wealthwise/controller/AuthController.java:[55,30] cannot find symbol
+  symbol:   method getFullName()
+  location: variable req of type com.wealthwise.controller.AuthController.SignUpRequest
+[ERROR] /c:/Users/bhuva/Downloads/project-bolt-github-kqfaysnh/backend/src/main/java/com/wealthwise/controller/AuthController.java:[56,27] cannot find symbol
+  symbol:   method getEmail()
+  location: variable req of type com.wealthwise.controller.AuthController.SignUpRequest
+[ERROR] /c:/Users/bhuva/Downloads/project-bolt-github-kqfaysnh/backend/src/main/java/com/wealthwise/controller/AuthController.java:[57,53] cannot find symbol
+  symbol:   method getPassword()
+  location: variable req of type com.wealthwise.controller.AuthController.SignUpRequest
+[ERROR] /c:/Users/bhuva/Downloads/project-bolt-github-kqfaysnh/backend/src/main/java/com/wealthwise/controller/AuthController.java:[58,27] cannot find symbol
+  symbol:   method getPhone()
+  location: variable req of type com.wealthwise.controller.AuthController.SignUpRequest
+[ERROR] /c:/Users/bhuva/Downloads/project-bolt-github-kqfaysnh/backend/src/main/java/com/wealthwise/controller/AuthController.java:[59,30] cannot find symbol
+  symbol:   method getCurrency()
+  location: variable req of type com.wealthwise.controller.AuthController.SignUpRequest
+[ERROR] /c:/Users/bhuva/Downloads/project-bolt-github-kqfaysnh/backend/src/main/java/com/wealthwise/controller/AuthController.java:[59,58] cannot find symbol
+  symbol:   method getCurrency()
+  location: variable req of type com.wealthwise.controller.AuthController.SignUpRequest
+[ERROR] /c:/Users/bhuva/Downloads/project-bolt-github-kqfaysnh/backend/src/main/java/com/wealthwise/controller/AuthController.java:[60,29] cannot find symbol
+  symbol:   method getPanCard()
+  location: variable req of type com.wealthwise.controller.AuthController.SignUpRequest
+[ERROR] /c:/Users/bhuva/Downloads/project-bolt-github-kqfaysnh/backend/src/main/java/com/wealthwise/controller/AuthController.java:[66,54] cannot find symbol
+  symbol:   method getId()
+  location: variable saved of type com.wealthwise.model.User
+[ERROR] /c:/Users/bhuva/Downloads/project-bolt-github-kqfaysnh/backend/src/main/java/com/wealthwise/controller/AuthController.java:[66,69] cannot find symbol
+  symbol:   method getEmail()
+  location: variable saved of type com.wealthwise.model.User
+[ERROR] /c:/Users/bhuva/Downloads/project-bolt-github-kqfaysnh/backend/src/main/java/com/wealthwise/controller/AuthController.java:[71,36] cannot find symbol
+  symbol:   method getId()
+  location: variable saved of type com.wealthwise.model.User
+[ERROR] /c:/Users/bhuva/Downloads/project-bolt-github-kqfaysnh/backend/src/main/java/com/wealthwise/controller/AuthController.java:[72,39] cannot find symbol
+  symbol:   method getEmail()
+  location: variable saved of type com.wealthwise.model.User
+[ERROR] /c:/Users/bhuva/Downloads/project-bolt-github-kqfaysnh/backend/src/main/java/com/wealthwise/controller/AuthController.java:[73,42] cannot find symbol
+  symbol:   method getFullName()
+  location: variable saved of type com.wealthwise.model.User
+[ERROR] /c:/Users/bhuva/Downloads/project-bolt-github-kqfaysnh/backend/src/main/java/com/wealthwise/controller/AuthController.java:[74,42] cannot find symbol
+  symbol:   method getCurrency()
+  location: variable saved of type com.wealthwise.model.User
+[ERROR] /c:/Users/bhuva/Downloads/project-bolt-github-kqfaysnh/backend/src/main/java/com/wealthwise/controller/AuthController.java:[83,64] cannot find symbol
+  symbol:   method getEmail()
+  location: variable req of type com.wealthwise.controller.AuthController.SignInRequest
+[ERROR] /c:/Users/bhuva/Downloads/project-bolt-github-kqfaysnh/backend/src/main/java/com/wealthwise/controller/AuthController.java:[93,41] cannot find symbol
+  symbol:   method getPassword()
+  location: variable req of type com.wealthwise.controller.AuthController.SignInRequest
+[ERROR] /c:/Users/bhuva/Downloads/project-bolt-github-kqfaysnh/backend/src/main/java/com/wealthwise/controller/AuthController.java:[93,61] cannot find symbol
+  symbol:   method getPassword()
+  location: variable user of type com.wealthwise.model.User
+[ERROR] /c:/Users/bhuva/Downloads/project-bolt-github-kqfaysnh/backend/src/main/java/com/wealthwise/controller/AuthController.java:[98,53] cannot find symbol
+  symbol:   method getId()
+  location: variable user of type com.wealthwise.model.User
+[ERROR] /c:/Users/bhuva/Downloads/project-bolt-github-kqfaysnh/backend/src/main/java/com/wealthwise/controller/AuthController.java:[98,67] cannot find symbol
+  symbol:   method getEmail()
+  location: variable user of type com.wealthwise.model.User
+[ERROR] /c:/Users/bhuva/Downloads/project-bolt-github-kqfaysnh/backend/src/main/java/com/wealthwise/controller/AuthController.java:[103,35] cannot find symbol
+  symbol:   method getId()
+  location: variable user of type com.wealthwise.model.User
+[ERROR] /c:/Users/bhuva/Downloads/project-bolt-github-kqfaysnh/backend/src/main/java/com/wealthwise/controller/AuthController.java:[104,38] cannot find symbol
+  symbol:   method getEmail()
+  location: variable user of type com.wealthwise.model.User
+[ERROR] /c:/Users/bhuva/Downloads/project-bolt-github-kqfaysnh/backend/src/main/java/com/wealthwise/controller/AuthController.java:[105,41] cannot find symbol
+  symbol:   method getFullName()
+  location: variable user of type com.wealthwise.model.User
+[ERROR] /c:/Users/bhuva/Downloads/project-bolt-github-kqfaysnh/backend/src/main/java/com/wealthwise/controller/AuthController.java:[106,41] cannot find symbol
+  symbol:   method getCurrency()
+  location: variable user of type com.wealthwise.model.User
+[INFO] 30 errors 
+[INFO] -------------------------------------------------------------
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD FAILURE
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time:  2.538 s
+[INFO] Finished at: 2026-03-12T03:38:30+05:30
+[INFO] ------------------------------------------------------------------------
+[ERROR] Failed to execute goal org.apache.maven.plugins:maven-compiler-plugin:3.11.0:compile (default-compile) on project wealthwise-backend: Compilation failure: Compilation failure: 
+[ERROR] /c:/Users/bhuva/Downloads/project-bolt-github-kqfaysnh/backend/src/main/java/com/wealthwise/config/AppJwtFilter.java:[58,13] cannot find symbol
+[ERROR]   symbol:   variable log
+[ERROR]   location: class com.wealthwise.config.AppJwtFilter
+[ERROR] /c:/Users/bhuva/Downloads/project-bolt-github-kqfaysnh/backend/src/main/java/com/wealthwise/security/JwtService.java:[49,20] cannot find symbol
+[ERROR]   symbol:   method parserBuilder()
+[ERROR]   location: class io.jsonwebtoken.Jwts
+[ERROR] /c:/Users/bhuva/Downloads/project-bolt-github-kqfaysnh/backend/src/main/java/com/wealthwise/service/MfApiService.java:[38,13] cannot find symbol
+[ERROR]   symbol:   variable log
+[ERROR]   location: class com.wealthwise.service.MfApiService
+[ERROR] /c:/Users/bhuva/Downloads/project-bolt-github-kqfaysnh/backend/src/main/java/com/wealthwise/service/MfApiService.java:[43,9] cannot find symbol
+[ERROR]   symbol:   variable log
+[ERROR]   location: class com.wealthwise.service.MfApiService
+[ERROR] /c:/Users/bhuva/Downloads/project-bolt-github-kqfaysnh/backend/src/main/java/com/wealthwise/service/MfApiService.java:[52,13] cannot find symbol
+[ERROR]   symbol:   variable log
+[ERROR]   location: class com.wealthwise.service.MfApiService
+[ERROR] /c:/Users/bhuva/Downloads/project-bolt-github-kqfaysnh/backend/src/main/java/com/wealthwise/service/MfApiService.java:[68,13] cannot find symbol
+[ERROR]   symbol:   variable log
+[ERROR]   location: class com.wealthwise.service.MfApiService
+[ERROR] /c:/Users/bhuva/Downloads/project-bolt-github-kqfaysnh/backend/src/main/java/com/wealthwise/controller/AuthController.java:[48,45] cannot find symbol
+[ERROR]   symbol:   method getEmail()
+[ERROR]   location: variable req of type com.wealthwise.controller.AuthController.SignUpRequest
+[ERROR] /c:/Users/bhuva/Downloads/project-bolt-github-kqfaysnh/backend/src/main/java/com/wealthwise/controller/AuthController.java:[54,25] cannot find symbol
+[ERROR]   symbol:   method builder()
+[ERROR]   location: class com.wealthwise.model.User
+[ERROR] /c:/Users/bhuva/Downloads/project-bolt-github-kqfaysnh/backend/src/main/java/com/wealthwise/controller/AuthController.java:[55,30] cannot find symbol
+[ERROR]   symbol:   method getFullName()
+[ERROR]   location: variable req of type com.wealthwise.controller.AuthController.SignUpRequest
+[ERROR] /c:/Users/bhuva/Downloads/project-bolt-github-kqfaysnh/backend/src/main/java/com/wealthwise/controller/AuthController.java:[56,27] cannot find symbol
+[ERROR]   symbol:   method getEmail()
+[ERROR]   location: variable req of type com.wealthwise.controller.AuthController.SignUpRequest
+[ERROR] /c:/Users/bhuva/Downloads/project-bolt-github-kqfaysnh/backend/src/main/java/com/wealthwise/controller/AuthController.java:[57,53] cannot find symbol
+[ERROR]   symbol:   method getPassword()
+[ERROR]   location: variable req of type com.wealthwise.controller.AuthController.SignUpRequest
+[ERROR] /c:/Users/bhuva/Downloads/project-bolt-github-kqfaysnh/backend/src/main/java/com/wealthwise/controller/AuthController.java:[58,27] cannot find symbol
+[ERROR]   symbol:   method getPhone()
+[ERROR]   location: variable req of type com.wealthwise.controller.AuthController.SignUpRequest
+[ERROR] /c:/Users/bhuva/Downloads/project-bolt-github-kqfaysnh/backend/src/main/java/com/wealthwise/controller/AuthController.java:[59,30] cannot find symbol
+[ERROR]   symbol:   method getCurrency()
+[ERROR]   location: variable req of type com.wealthwise.controller.AuthController.SignUpRequest
+[ERROR] /c:/Users/bhuva/Downloads/project-bolt-github-kqfaysnh/backend/src/main/java/com/wealthwise/controller/AuthController.java:[59,58] cannot find symbol
+[ERROR]   symbol:   method getCurrency()
+[ERROR]   location: variable req of type com.wealthwise.controller.AuthController.SignUpRequest
+[ERROR] /c:/Users/bhuva/Downloads/project-bolt-github-kqfaysnh/backend/src/main/java/com/wealthwise/controller/AuthController.java:[60,29] cannot find symbol
+[ERROR]   symbol:   method getPanCard()
+[ERROR]   location: variable req of type com.wealthwise.controller.AuthController.SignUpRequest
+[ERROR] /c:/Users/bhuva/Downloads/project-bolt-github-kqfaysnh/backend/src/main/java/com/wealthwise/controller/AuthController.java:[66,54] cannot find symbol
+[ERROR]   symbol:   method getId()
+[ERROR]   location: variable saved of type com.wealthwise.model.User
+[ERROR] /c:/Users/bhuva/Downloads/project-bolt-github-kqfaysnh/backend/src/main/java/com/wealthwise/controller/AuthController.java:[66,69] cannot find symbol
+[ERROR]   symbol:   method getEmail()
+[ERROR]   location: variable saved of type com.wealthwise.model.User
+[ERROR] /c:/Users/bhuva/Downloads/project-bolt-github-kqfaysnh/backend/src/main/java/com/wealthwise/controller/AuthController.java:[71,36] cannot find symbol
+[ERROR]   symbol:   method getId()
+[ERROR]   location: variable saved of type com.wealthwise.model.User
+[ERROR] /c:/Users/bhuva/Downloads/project-bolt-github-kqfaysnh/backend/src/main/java/com/wealthwise/controller/AuthController.java:[72,39] cannot find symbol
+[ERROR]   symbol:   method getEmail()
+[ERROR]   location: variable saved of type com.wealthwise.model.User
+[ERROR] /c:/Users/bhuva/Downloads/project-bolt-github-kqfaysnh/backend/src/main/java/com/wealthwise/controller/AuthController.java:[73,42] cannot find symbol
+[ERROR]   symbol:   method getFullName()
+[ERROR]   location: variable saved of type com.wealthwise.model.User
+[ERROR] /c:/Users/bhuva/Downloads/project-bolt-github-kqfaysnh/backend/src/main/java/com/wealthwise/controller/AuthController.java:[74,42] cannot find symbol
+[ERROR]   symbol:   method getCurrency()
+[ERROR]   location: variable saved of type com.wealthwise.model.User
+[ERROR] /c:/Users/bhuva/Downloads/project-bolt-github-kqfaysnh/backend/src/main/java/com/wealthwise/controller/AuthController.java:[83,64] cannot find symbol
+[ERROR]   symbol:   method getEmail()
+[ERROR]   location: variable req of type com.wealthwise.controller.AuthController.SignInRequest
+[ERROR] /c:/Users/bhuva/Downloads/project-bolt-github-kqfaysnh/backend/src/main/java/com/wealthwise/controller/AuthController.java:[93,41] cannot find symbol
+[ERROR]   symbol:   method getPassword()
+[ERROR]   location: variable req of type com.wealthwise.controller.AuthController.SignInRequest
+[ERROR] /c:/Users/bhuva/Downloads/project-bolt-github-kqfaysnh/backend/src/main/java/com/wealthwise/controller/AuthController.java:[93,61] cannot find symbol
+[ERROR]   symbol:   method getPassword()
+[ERROR]   location: variable user of type com.wealthwise.model.User
+[ERROR] /c:/Users/bhuva/Downloads/project-bolt-github-kqfaysnh/backend/src/main/java/com/wealthwise/controller/AuthController.java:[98,53] cannot find symbol
+[ERROR]   symbol:   method getId()
+[ERROR]   location: variable user of type com.wealthwise.model.User
+[ERROR] /c:/Users/bhuva/Downloads/project-bolt-github-kqfaysnh/backend/src/main/java/com/wealthwise/controller/AuthController.java:[98,67] cannot find symbol
+[ERROR]   symbol:   method getEmail()
+[ERROR]   location: variable user of type com.wealthwise.model.User
+[ERROR] /c:/Users/bhuva/Downloads/project-bolt-github-kqfaysnh/backend/src/main/java/com/wealthwise/controller/AuthController.java:[103,35] cannot find symbol
+[ERROR]   symbol:   method getId()
+[ERROR]   location: variable user of type com.wealthwise.model.User
+[ERROR] /c:/Users/bhuva/Downloads/project-bolt-github-kqfaysnh/backend/src/main/java/com/wealthwise/controller/AuthController.java:[104,38] cannot find symbol
+[ERROR]   symbol:   method getEmail()
+[ERROR]   location: variable user of type com.wealthwise.model.User
+[ERROR] /c:/Users/bhuva/Downloads/project-bolt-github-kqfaysnh/backend/src/main/java/com/wealthwise/controller/AuthController.java:[105,41] cannot find symbol
+[ERROR]   symbol:   method getFullName()
+[ERROR]   location: variable user of type com.wealthwise.model.User
+[ERROR] /c:/Users/bhuva/Downloads/project-bolt-github-kqfaysnh/backend/src/main/java/com/wealthwise/controller/AuthController.java:[106,41] cannot find symbol
+[ERROR]   symbol:   method getCurrency()
+[ERROR]   location: variable user of type com.wealthwise.model.User
+[ERROR] -> [Help 1]
+[ERROR] 
+[ERROR] To see the full stack trace of the errors, re-run Maven with the -e switch.
+[ERROR] Re-run Maven using the -X switch to enable full debug logging.
+[ERROR] 
+[ERROR] For more information about the errors and possible solutions, please read the following articles:
+[ERROR] [Help 1] http://cwiki.apache.org/confluence/display/MAVEN/MojoFailureException
