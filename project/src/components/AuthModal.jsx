@@ -8,6 +8,7 @@ import { useAuth } from '../context/AuthContext';
 import './AuthModal.css';
 
 const currencies = ['INR – Indian Rupee', 'USD – US Dollar', 'EUR – Euro', 'GBP – British Pound', 'AED – UAE Dirham'];
+const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
 
 // ── Helpers ───────────────────────────────────────────────────────────────
 const InputField = ({ icon: Icon, type = 'text', placeholder, value, onChange, autoComplete }) => (
@@ -41,16 +42,21 @@ const SignInPanel = ({ onSwitch, onClose }) => {
     const [showPass, setShowPass] = useState(false);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
-    const [forgot, setForgot] = useState(false);
+    const [successMsg, setSuccessMsg] = useState('');
+    
+    // Forgot Password states: 0 = sign in, 1 = ask email, 2 = ask OTP + new pass
+    const [forgotStep, setForgotStep] = useState(0); 
+    const [otp, setOtp] = useState('');
+    const [newPassword, setNewPassword] = useState('');
 
     const handleSignIn = async (e) => {
         e.preventDefault();
         setError('');
-        if (!email || !password) { setError('Please enter your email and password.'); return; }
+        if (!email || !password) { setError('Please enter email and password.'); return; }
         setLoading(true);
         try {
             await signIn({ email, password });
-            onClose(); // success
+            onClose(); 
         } catch (err) {
             setError(err.message);
         } finally {
@@ -58,20 +64,100 @@ const SignInPanel = ({ onSwitch, onClose }) => {
         }
     };
 
-    // Forgot password — backend not yet implemented, show info for now
-    if (forgot) {
+    const handleSendOtp = async () => {
+        setError('');
+        setSuccessMsg('');
+        if (!email) { setError('Please enter an email address first.'); return; }
+        setLoading(true);
+        try {
+            const res = await fetch(`${API_BASE}/api/auth/forgot-password`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email }),
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Failed to send reset link');
+            
+            setSuccessMsg('OTP sent to email!');
+            setForgotStep(2); 
+        } catch (err) {
+            setError(err.message);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleResetPassword = async () => {
+        setError('');
+        setSuccessMsg('');
+        if (!otp || !newPassword) { setError('Please enter the OTP and new password.'); return; }
+        if (newPassword.length < 8) { setError('Password must be at least 8 characters.'); return; }
+        
+        setLoading(true);
+        try {
+            const res = await fetch(`${API_BASE}/api/auth/reset-password`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, otp, newPassword }),
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Failed to reset password');
+
+            setSuccessMsg('Password reset successful! I can now sign in.');
+            setForgotStep(0); 
+            setPassword(''); 
+        } catch (err) {
+            setError(err.message);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    if (forgotStep === 1) {
         return (
             <div className="auth-form">
-                <button type="button" className="auth-back-btn" onClick={() => { setForgot(false); setError(''); }}>← Back to Sign In</button>
+                <button type="button" className="auth-back-btn" onClick={() => { setForgotStep(0); setError(''); setSuccessMsg(''); }}>← Back to Sign In</button>
                 <h3 className="auth-form-title">Forgot Password</h3>
-                <p className="auth-form-sub">Enter your email and we'll send a reset link once the email service is configured.</p>
-                <InputField icon={Mail} type="email" placeholder="Email address" value={email} onChange={e => setEmail(e.target.value)} />
-                <motion.button type="button" className="auth-primary-btn"
-                    onClick={() => setError('Password reset email coming soon — contact support for now.')}
-                    whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
-                    Send Reset Link <ArrowRight size={16} />
-                </motion.button>
+                <p className="auth-form-sub">Enter email to receive a 6-digit OTP.</p>
                 <ErrorBanner msg={error} />
+                
+                <InputField icon={Mail} type="email" placeholder="Email address" value={email} onChange={e => setEmail(e.target.value)} />
+                
+                <motion.button type="button" className="auth-primary-btn" disabled={loading}
+                    onClick={handleSendOtp}
+                    whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+                    {loading ? 'Sending...' : 'Send OTP'} <ArrowRight size={16} />
+                </motion.button>
+            </div>
+        );
+    }
+
+    if (forgotStep === 2) {
+        return (
+            <div className="auth-form">
+                <button type="button" className="auth-back-btn" onClick={() => { setForgotStep(1); setError(''); }}>← Back</button>
+                <h3 className="auth-form-title">Reset Password</h3>
+                <p className="auth-form-sub">Enter the OTP sent to {email}</p>
+                <ErrorBanner msg={error} />
+                {successMsg && <div className="auth-error" style={{color: '#00D09C', backgroundColor: 'rgba(0, 208, 156, 0.1)'}}><CheckCircle2 size={14} /> {successMsg}</div>}
+                
+                <InputField icon={Lock} type="text" placeholder="6-digit OTP" value={otp} onChange={e => setOtp(e.target.value)} />
+                
+                <div className="auth-input-wrap">
+                    <Lock size={16} className="auth-input-icon" />
+                    <input type={showPass ? 'text' : 'password'} placeholder="New Password (min 8 chars)"
+                        value={newPassword} onChange={e => setNewPassword(e.target.value)}
+                        className="auth-input" />
+                    <button type="button" className="auth-eye-btn" onClick={() => setShowPass(!showPass)}>
+                        {showPass ? <EyeOff size={15} /> : <Eye size={15} />}
+                    </button>
+                </div>
+
+                <motion.button type="button" className="auth-primary-btn" disabled={loading}
+                    onClick={handleResetPassword}
+                    whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+                    {loading ? 'Resetting...' : 'Confirm Reset'} <CheckCircle2 size={16} />
+                </motion.button>
             </div>
         );
     }
@@ -79,8 +165,10 @@ const SignInPanel = ({ onSwitch, onClose }) => {
     return (
         <form className="auth-form" onSubmit={handleSignIn}>
             <h3 className="auth-form-title">Welcome back</h3>
-            <p className="auth-form-sub">Sign in to your WealthWise account</p>
+            <p className="auth-form-sub">Sign in to my WealthWise account</p>
             <ErrorBanner msg={error} />
+            {successMsg && <div className="auth-error" style={{color: '#00D09C', backgroundColor: 'rgba(0, 208, 156, 0.1)'}}><CheckCircle2 size={14} /> {successMsg}</div>}
+            
             <InputField icon={Mail} type="email" placeholder="Email address" value={email}
                 onChange={e => setEmail(e.target.value)} autoComplete="email" />
             <div className="auth-input-wrap">
@@ -93,7 +181,7 @@ const SignInPanel = ({ onSwitch, onClose }) => {
                 </button>
             </div>
             <div className="auth-forgot-row">
-                <button type="button" className="auth-link" onClick={() => { setForgot(true); setError(''); }}>
+                <button type="button" className="auth-link" onClick={() => { setForgotStep(1); setError(''); setSuccessMsg(''); }}>
                     Forgot password?
                 </button>
             </div>
@@ -126,7 +214,7 @@ const SignUpPanel = ({ onSwitch, onClose }) => {
     const handleNext = (e) => {
         e.preventDefault();
         setError('');
-        if (!name.trim()) { setError('Please enter your full name.'); return; }
+        if (!name.trim()) { setError('Please enter full name.'); return; }
         if (!email.trim()) { setError('Email is required.'); return; }
         if (pass.length < 8) { setError('Password must be at least 8 characters.'); return; }
         setStep(2);
@@ -145,7 +233,7 @@ const SignUpPanel = ({ onSwitch, onClose }) => {
                 currency: currency || 'INR – Indian Rupee',
                 panCard: pan.toUpperCase() || null,
             });
-            onClose(); // signed up + signed in — close modal immediately
+            onClose(); 
         } catch (err) {
             setError(err.message);
         } finally {
@@ -158,9 +246,9 @@ const SignUpPanel = ({ onSwitch, onClose }) => {
             {step === 2 && (
                 <button type="button" className="auth-back-btn" onClick={() => { setStep(1); setError(''); }}>← Back</button>
             )}
-            <h3 className="auth-form-title">{step === 1 ? 'Create your account' : 'A few more details'}</h3>
+            <h3 className="auth-form-title">{step === 1 ? 'Create account' : 'A few more details'}</h3>
             <p className="auth-form-sub">
-                {step === 1 ? 'Track all your mutual funds in one place' : 'Personalise your portfolio experience'}
+                {step === 1 ? 'Track all mutual funds in one place' : 'Personalise the portfolio experience'}
             </p>
 
             <div className="auth-progress">

@@ -3,69 +3,82 @@ package com.wealthwise.controller;
 import com.wealthwise.model.User;
 import com.wealthwise.repository.UserRepository;
 import com.wealthwise.security.JwtService;
+import com.wealthwise.service.AuthService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
-import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/auth")
-@CrossOrigin(origins = "http://localhost:5173") // Allow Vite frontend
+@CrossOrigin(origins = "*") // Update with the exact Vite URL (e.g., http://localhost:5173) in production
 public class AuthController {
 
     @Autowired
     private UserRepository userRepository;
 
     @Autowired
-    private PasswordEncoder passwordEncoder;
+    private AuthService authService;
 
     @Autowired
     private JwtService jwtService;
 
     @PostMapping("/signup")
     public ResponseEntity<?> signUp(@RequestBody User signUpRequest) {
-        if (userRepository.existsByEmail(signUpRequest.getEmail())) {
-            return ResponseEntity.badRequest().body(Map.of("error", "Email is already taken!"));
+        try {
+            if (userRepository.existsByEmail(signUpRequest.getEmail())) {
+                return ResponseEntity.badRequest().body(Map.of("error", "Email is already registered!"));
+            }
+
+            User savedUser = authService.saveNewUser(signUpRequest);
+            String token = jwtService.generateToken(savedUser.getEmail());
+            savedUser.setPassword(null); // Hide password in response
+
+            return ResponseEntity.ok(Map.of("token", token, "user", savedUser));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
-
-        // Hash the password before saving
-        signUpRequest.setPassword(passwordEncoder.encode(signUpRequest.getPassword()));
-        
-        User savedUser = userRepository.save(signUpRequest);
-        String token = jwtService.generateToken(savedUser.getEmail());
-
-        // Remove password from response for security
-        savedUser.setPassword(null);
-
-        return ResponseEntity.ok(Map.of(
-                "token", token,
-                "user", savedUser
-        ));
     }
 
     @PostMapping("/signin")
     public ResponseEntity<?> signIn(@RequestBody Map<String, String> loginRequest) {
-        String email = loginRequest.get("email");
-        String password = loginRequest.get("password");
+        try {
+            String email = loginRequest.get("email");
+            String password = loginRequest.get("password");
 
-        Optional<User> userOpt = userRepository.findByEmail(email);
+            User user = authService.authenticateUser(email, password);
+            String token = jwtService.generateToken(user.getEmail());
+            user.setPassword(null); // Hide password in response
 
-        if (userOpt.isEmpty() || !passwordEncoder.matches(password, userOpt.get().getPassword())) {
-            return ResponseEntity.status(401).body(Map.of("error", "Invalid email or password"));
+            return ResponseEntity.ok(Map.of("token", token, "user", user));
+        } catch (RuntimeException e) {
+            return ResponseEntity.status(401).body(Map.of("error", e.getMessage()));
         }
+    }
 
-        User user = userOpt.get();
-        String token = jwtService.generateToken(user.getEmail());
+    @PostMapping("/forgot-password")
+    public ResponseEntity<?> forgotPassword(@RequestBody Map<String, String> request) {
+        try {
+            String email = request.get("email");
+            authService.generateAndSaveOtp(email);
+            return ResponseEntity.ok(Map.of("message", "OTP generated and sent to email successfully."));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
 
-        // Remove password from response for security
-        user.setPassword(null);
-
-        return ResponseEntity.ok(Map.of(
-                "token", token,
-                "user", user
-        ));
+    @PostMapping("/reset-password")
+    public ResponseEntity<?> resetPassword(@RequestBody Map<String, String> request) {
+        try {
+            String email = request.get("email");
+            String otp = request.get("otp");
+            String newPassword = request.get("newPassword");
+            
+            authService.verifyOtpAndResetPassword(email, otp, newPassword);
+            return ResponseEntity.ok(Map.of("message", "Password has been successfully reset."));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
     }
 }

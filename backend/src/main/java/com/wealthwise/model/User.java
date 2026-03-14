@@ -1,34 +1,57 @@
 package com.wealthwise.model;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
-import java.time.Instant;
+import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "users")
+@Table(name = "users") // "users" is correct because "user" is a reserved keyword in PostgreSQL
 public class User {
-    
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false)
+    // Explicitly mapping to snake_case for PostgreSQL compatibility
+    @Column(name = "full_name", nullable = false)
     private String fullName;
 
-    @Column(nullable = false, unique = true)
+    @Column(name = "email", unique = true, nullable = false)
     private String email;
 
-    @Column(nullable = false)
+    @Column(name = "password", nullable = false)
     private String password;
 
+    @Column(name = "phone")
     private String phone;
+    
+    @Column(name = "currency")
     private String currency;
+    
+    @Column(name = "pan_card")
     private String panCard;
 
-    @Column(updatable = false)
-    private Instant createdAt = Instant.now();
+    @Column(name = "reset_otp")
+    private String resetOtp;
 
-    // --- Getters and Setters ---
+    @Column(name = "otp_expiry")
+    private LocalDateTime otpExpiry;
+
+    // Default constructor required by JPA
+    public User() {}
+
+    // Parameterized constructor
+    public User(String fullName, String email, String password, String phone, String currency, String panCard) {
+        this.fullName = fullName;
+        this.email = email;
+        this.password = password;
+        this.phone = phone;
+        this.currency = currency;
+        this.panCard = panCard;
+    }
+
+    // =========================
+    // Getters and Setters
+    // =========================
 
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
@@ -39,9 +62,7 @@ public class User {
     public String getEmail() { return email; }
     public void setEmail(String email) { this.email = email; }
 
-    @JsonIgnore // This completely hides the password from the frontend response!
     public String getPassword() { return password; }
-    
     public void setPassword(String password) { this.password = password; }
 
     public String getPhone() { return phone; }
@@ -53,6 +74,9 @@ public class User {
     public String getPanCard() { return panCard; }
     public void setPanCard(String panCard) { this.panCard = panCard; }
 
-    public Instant getCreatedAt() { return createdAt; }
-    public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
+    public String getResetOtp() { return resetOtp; }
+    public void setResetOtp(String resetOtp) { this.resetOtp = resetOtp; }
+
+    public LocalDateTime getOtpExpiry() { return otpExpiry; }
+    public void setOtpExpiry(LocalDateTime otpExpiry) { this.otpExpiry = otpExpiry; }
 }
