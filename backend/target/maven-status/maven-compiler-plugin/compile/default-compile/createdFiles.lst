@@ -1,0 +1,3 @@
+com\wealthwise\controller\AnalyticsController.class
+com\wealthwise\service\AnalyticsService.class
+com\wealthwise\service\TransactionService$BulkSipRequest.class

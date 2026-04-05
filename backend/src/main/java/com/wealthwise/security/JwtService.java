@@ -25,6 +25,11 @@ public class JwtService {
         return extractClaim(token, Claims::getSubject);
     }
 
+    /** Alias for extractUsername — the JWT subject stores the user's email */
+    public String extractEmail(String token) {
+        return extractUsername(token);
+    }
+
     public <T> T extractClaim(String token, Function<Claims, T> claimsResolver) {
         final Claims claims = extractAllClaims(token);
         return claimsResolver.apply(claims);

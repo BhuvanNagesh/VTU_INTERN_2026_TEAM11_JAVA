@@ -36,6 +36,13 @@ public class User {
     @Column(name = "otp_expiry")
     private LocalDateTime otpExpiry;
 
+    // Risk profile from M04 questionnaire — CONSERVATIVE | MODERATE | AGGRESSIVE
+    @Column(name = "risk_profile", columnDefinition = "VARCHAR(50) DEFAULT 'MODERATE'")
+    private String riskProfile = "MODERATE";
+
+    @Column(name = "created_at", columnDefinition = "TIMESTAMP WITH TIME ZONE")
+    private LocalDateTime createdAt = LocalDateTime.now();
+
     // Default constructor required by JPA
     public User() {}
 
@@ -79,4 +86,10 @@ public class User {
 
     public LocalDateTime getOtpExpiry() { return otpExpiry; }
     public void setOtpExpiry(LocalDateTime otpExpiry) { this.otpExpiry = otpExpiry; }
+
+    public LocalDateTime getCreatedAt() { return createdAt; }
+    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+
+    public String getRiskProfile() { return riskProfile; }
+    public void setRiskProfile(String riskProfile) { this.riskProfile = riskProfile; }
 }

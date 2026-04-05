@@ -1,17 +1,46 @@
 import { useEffect, useState } from 'react';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import Navbar from './components/Navbar';
 import Hero from './components/Hero';
 import MutualFundSection from './components/MutualFundSection';
-import Features from './components/Features';
 import AnalyticsSection from './components/AnalyticsSection';
+import Features from './components/Features';
 import CTA from './components/CTA';
 import Footer from './components/Footer';
 import ParticleField from './components/ParticleField';
 import AuthModal from './components/AuthModal';
+import DashboardPage from './components/DashboardPage';
+import TransactionsPage from './components/TransactionsPage';
+import ProfilePage from './components/ProfilePage';
+import AnalyticsPage from './components/AnalyticsPage';
 import './App.css';
 
-// Inner app that has access to AuthContext
+// Landing page (existing)
+function LandingPage({ scrollY, openAuth }) {
+  return (
+    <>
+      <Hero scrollY={scrollY} onOpenAuth={openAuth} />
+      <MutualFundSection />
+      <AnalyticsSection />
+      <Features />
+      <CTA onOpenAuth={openAuth} />
+      <Footer />
+    </>
+  );
+}
+
+// Protected route wrapper
+function ProtectedRoute({ children }) {
+  const { user, loading } = useAuth();
+  if (loading) return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: '#0A0A0F' }}>
+      <div style={{ width: 40, height: 40, border: '3px solid rgba(0,208,156,0.2)', borderTopColor: '#00D09C', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+    </div>
+  );
+  return user ? children : <Navigate to="/" replace />;
+}
+
 function AppContent() {
   const [scrollY, setScrollY] = useState(0);
   const [authOpen, setAuthOpen] = useState(false);
@@ -32,15 +61,28 @@ function AppContent() {
   return (
     <div className="app">
       <ParticleField />
-      <Navbar scrollY={scrollY} user={user} onSignIn={() => openAuth('signin')} onSignUp={() => openAuth('signup')} onSignOut={signOut} />
+      <Navbar
+        scrollY={scrollY}
+        user={user}
+        onSignIn={() => openAuth('signin')}
+        onSignUp={() => openAuth('signup')}
+        onSignOut={signOut}
+      />
       <main>
-        <Hero scrollY={scrollY} onOpenAuth={openAuth} />
-        <MutualFundSection />
-        <AnalyticsSection />
-        <Features />
-        <CTA onOpenAuth={openAuth} />
+        <Routes>
+          {/* Public landing */}
+          <Route path="/" element={<LandingPage scrollY={scrollY} openAuth={openAuth} />} />
+
+          {/* Protected app routes */}
+          <Route path="/dashboard" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
+          <Route path="/transactions" element={<ProtectedRoute><TransactionsPage /></ProtectedRoute>} />
+          <Route path="/analytics" element={<ProtectedRoute><AnalyticsPage /></ProtectedRoute>} />
+          <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
+
+          {/* Catch-all */}
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
       </main>
-      <Footer />
       <AuthModal isOpen={authOpen} onClose={() => setAuthOpen(false)} initialTab={authTab} />
     </div>
   );
@@ -48,9 +90,11 @@ function AppContent() {
 
 function App() {
   return (
-    <AuthProvider>
-      <AppContent />
-    </AuthProvider>
+    <BrowserRouter>
+      <AuthProvider>
+        <AppContent />
+      </AuthProvider>
+    </BrowserRouter>
   );
 }
 
