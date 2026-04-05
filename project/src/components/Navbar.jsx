@@ -1,6 +1,7 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { TrendingUp, Bell, Search, Menu, X, User, LogOut } from 'lucide-react';
+import { TrendingUp, Bell, Search, Menu, X, User, LogOut, LayoutDashboard, List, UserCircle, Activity } from 'lucide-react';
 import './Navbar.css';
 
 const tickerData = [
@@ -55,13 +56,37 @@ const Navbar = ({ scrollY, user, onSignIn, onSignUp, onSignOut }) => {
         <nav className="nav-main">
           <div className="nav-inner">
             {/* Logo */}
-            <motion.div className="nav-logo" whileHover={{ scale: 1.02 }}>
-              <div className="logo-mark">
-                <div className="logo-inner-ring" />
-                <TrendingUp size={16} color="#00D09C" />
+            <Link to="/" style={{ textDecoration: 'none' }}>
+              <motion.div className="nav-logo" whileHover={{ scale: 1.02 }}>
+                <div className="logo-mark">
+                  <div className="logo-inner-ring" />
+                  <TrendingUp size={16} color="#00D09C" />
+                </div>
+                <span className="logo-wordmark">WealthWise</span>
+              </motion.div>
+            </Link>
+
+            {/* App Nav Links — only shown when signed in */}
+            {user && (
+              <div className="nav-app-links">
+                <Link to="/dashboard" className="nav-app-link">
+                  <LayoutDashboard size={15} />
+                  Dashboard
+                </Link>
+                <Link to="/transactions" className="nav-app-link">
+                  <List size={15} />
+                  Transactions
+                </Link>
+                <Link to="/analytics" className="nav-app-link">
+                  <Activity size={15} />
+                  Analytics
+                </Link>
+                <Link to="/profile" className="nav-app-link">
+                  <UserCircle size={15} />
+                  Profile
+                </Link>
               </div>
-              <span className="logo-wordmark">WealthWise</span>
-            </motion.div>
+            )}
 
             {/* Nav Actions */}
             <div className="nav-actions">
@@ -136,11 +161,23 @@ const Navbar = ({ scrollY, user, onSignIn, onSignUp, onSignOut }) => {
               exit={{ height: 0, opacity: 0 }}
               transition={{ duration: 0.3 }}
             >
-              {navItems.map((item) => (
-                <a key={item.label} href="#" className="mobile-nav-item">
-                  {item.label}
-                </a>
-              ))}
+              {user ? (
+                <>
+                  <Link to="/dashboard" className="mobile-nav-item" onClick={() => setMobileOpen(false)}>
+                    <LayoutDashboard size={15} /> Dashboard
+                  </Link>
+                  <Link to="/transactions" className="mobile-nav-item" onClick={() => setMobileOpen(false)}>
+                    <List size={15} /> Transactions
+                  </Link>
+                  <Link to="/analytics" className="mobile-nav-item" onClick={() => setMobileOpen(false)}>
+                    <Activity size={15} /> Analytics
+                  </Link>
+                </>
+              ) : (
+                navItems.map((item) => (
+                  <a key={item.label} href="#" className="mobile-nav-item">{item.label}</a>
+                ))
+              )}
               <div className="mobile-nav-btns">
                 {user ? (
                    <>

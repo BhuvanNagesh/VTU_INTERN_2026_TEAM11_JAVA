@@ -24,8 +24,12 @@ public class SecurityConfig {
         http
             .csrf(csrf -> csrf.disable()) // Disable CSRF for stateless REST APIs
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/api/auth/**").permitAll() // Allow anyone to signup/login/reset password
-                .anyRequest().authenticated() // Require a token for any other request
+                .requestMatchers("/api/auth/**").permitAll()          // Public: signup/login
+                .requestMatchers("/api/schemes/search").permitAll()   // Public: scheme search autocomplete
+                .requestMatchers("/api/schemes/count").permitAll()    // Public: scheme count
+                .requestMatchers("/api/schemes/nav/**").permitAll()   // Public: NAV lookup
+                .requestMatchers("/api/schemes/*").permitAll()        // Public: scheme detail
+                .anyRequest().permitAll()  // Controllers handle JWT validation manually
             );
         
         return http.build();

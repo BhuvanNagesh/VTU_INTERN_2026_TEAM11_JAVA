@@ -9,15 +9,16 @@
 
 .navbar-scrolled .nav-main {
   background: rgba(10, 10, 15, 0.92);
-  backdrop-filter: blur(24px);
-  border-bottom: 1px solid rgba(0, 208, 156, 0.1);
+  backdrop-filter: blur(40px);
+  -webkit-backdrop-filter: blur(40px);
+  border-bottom: 1px solid rgba(0, 242, 152, 0.1);
   box-shadow: 0 4px 30px rgba(0, 0, 0, 0.3);
 }
 
 /* Ticker Bar */
 .ticker-bar {
-  background: rgba(0, 208, 156, 0.06);
-  border-bottom: 1px solid rgba(0, 208, 156, 0.12);
+  background: rgba(0, 242, 152, 0.04);
+  border-bottom: 1px solid rgba(0, 242, 152, 0.08);
   height: 28px;
   display: flex;
   align-items: center;
@@ -31,13 +32,13 @@
   padding: 0 12px;
   font-size: 10px;
   font-weight: 700;
-  color: #00D09C;
+  color: var(--accent-green);
   letter-spacing: 1px;
   text-transform: uppercase;
   white-space: nowrap;
-  border-right: 1px solid rgba(0, 208, 156, 0.2);
+  border-right: 1px solid rgba(0, 242, 152, 0.15);
   height: 100%;
-  background: rgba(0, 208, 156, 0.08);
+  background: rgba(0, 242, 152, 0.06);
 }
 
 .ticker-track-wrapper {
@@ -141,7 +142,42 @@
   background-clip: text;
 }
 
+
+/* Authenticated App Navigation Links */
+.nav-app-links {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: 1;
+}
+
+.nav-app-link {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 13px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 13.5px;
+  font-weight: 500;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.nav-app-link:hover {
+  color: var(--accent-green);
+  background: rgba(0, 242, 152, 0.08);
+}
+
+.nav-app-link.active {
+  color: var(--accent-green);
+  background: rgba(0, 242, 152, 0.1);
+}
+
 /* Nav Links */
+
 .nav-links {
   display: flex;
   list-style: none;
