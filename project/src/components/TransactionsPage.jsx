@@ -138,11 +138,13 @@ function AddTransactionModal({ onClose, onSuccess, token }) {
   });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [successMsg, setSuccessMsg] = useState('');
   const [navHint, setNavHint] = useState('');
+  const [casualFile, setCasualFile] = useState(null);
 
   // Auto-fetch NAV when scheme OR date changes (only in single entry mode)
   useEffect(() => {
-    if (mode === 'bulk-sip') return;
+    if (mode === 'bulk-sip' || mode === 'upload-cas') return;
     if (!form.scheme || !form.transactionDate) return;
     const fetchNav = async () => {
       try {
@@ -187,13 +189,44 @@ function AddTransactionModal({ onClose, onSuccess, token }) {
   };
 
   const submit = async () => {
-    if (!form.scheme) { setError('Please select a scheme'); return; }
-    if (!form.transactionDate) { setError('Date is required'); return; }
-    if (isPurchaseType(form.transactionType) && !form.amount) { setError('Amount is required for purchase'); return; }
-    if (isRedemptionType(form.transactionType) && !form.units && !form.amount) { setError('Amount or units required for redemption'); return; }
+    if (mode !== 'upload-cas') {
+      if (!form.scheme) { setError('Please select a scheme'); return; }
+      if (!form.transactionDate) { setError('Date is required'); return; }
+      if (isPurchaseType(form.transactionType) && !form.amount) { setError('Amount is required for purchase'); return; }
+      if (isRedemptionType(form.transactionType) && !form.units && !form.amount) { setError('Amount or units required for redemption'); return; }
+    }
 
     setSubmitting(true);
     setError('');
+    setSuccessMsg('');
+    
+    if (mode === 'upload-cas') {
+      if (!casualFile) {
+        setError('Please select a CAS PDF file');
+        setSubmitting(false);
+        return;
+      }
+      
+      const formData = new FormData();
+      formData.append('file', casualFile);
+      // Wait, we don't have to send userId, the backend extracts it from token
+      
+      try {
+        const res = await fetch(`${API}/api/transactions/upload-cas`, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${token}` }, // Do NOT set Content-Type for FormData
+          body: formData,
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Failed to upload CAS');
+        onSuccess(data);
+      } catch (e) {
+        setError(e.message);
+      } finally {
+        setSubmitting(false);
+      }
+      return;
+    }
     
     if (mode === 'bulk-sip') {
       try {
@@ -262,13 +295,16 @@ function AddTransactionModal({ onClose, onSuccess, token }) {
         <div className="modal-tabs">
           <button className={`modal-tab ${mode === 'single' ? 'active' : ''}`} onClick={() => setMode('single')}>Single Entry</button>
           <button className={`modal-tab ${mode === 'bulk-sip' ? 'active' : ''}`} onClick={() => setMode('bulk-sip')}>Historical SIP Generator</button>
+          <button className={`modal-tab ${mode === 'upload-cas' ? 'active' : ''}`} onClick={() => setMode('upload-cas')}>Upload CAS</button>
         </div>
 
         <div className="form-grid" style={{ marginTop: '20px' }}>
-          <div className="form-group full-width">
-            <label className="form-label">Fund / Scheme *</label>
-            <SchemeAutocomplete value={form.scheme} onChange={s => set('scheme', s)} />
-          </div>
+          {mode === 'single' || mode === 'bulk-sip' ? (
+            <div className="form-group full-width">
+              <label className="form-label">Fund / Scheme *</label>
+              <SchemeAutocomplete value={form.scheme} onChange={s => set('scheme', s)} />
+            </div>
+          ) : null}
 
           {mode === 'single' ? (
             <>
@@ -341,7 +377,7 @@ function AddTransactionModal({ onClose, onSuccess, token }) {
                   value={form.notes} onChange={e => set('notes', e.target.value)} id="txn-notes" />
               </div>
             </>
-          ) : (
+          ) : mode === 'bulk-sip' ? (
             <>
               {/* Bulk SIP Settings */}
               <div className="form-group">
@@ -374,6 +410,43 @@ function AddTransactionModal({ onClose, onSuccess, token }) {
                 </div>
               </div>
             </>
+          ) : (
+            <>
+              {/* Upload CAS */}
+              <div className="form-group full-width">
+                <label className="form-label">CAS PDF File *</label>
+                <div style={{
+                  border: '2px dashed #00F29830',
+                  borderRadius: '10px',
+                  padding: '40px 20px',
+                  textAlign: 'center',
+                  background: 'rgba(0, 242, 152, 0.05)',
+                  cursor: 'pointer'
+                }} onClick={() => document.getElementById('cas-upload').click()}>
+                  <input type="file" id="cas-upload" accept=".pdf" style={{ display: 'none' }} onChange={e => {
+                      if (e.target.files && e.target.files[0]) setCasualFile(e.target.files[0]);
+                  }} />
+                  {casualFile ? (
+                    <div style={{ color: '#00F298', fontWeight: 500 }}>
+                      <Check size={20} style={{ display: 'block', margin: '0 auto 8px' }} />
+                      {casualFile.name}
+                    </div>
+                  ) : (
+                    <div>
+                      <Plus size={24} color="#00F298" style={{ display: 'block', margin: '0 auto 8px' }} />
+                      <span style={{ color: '#A0A0B0' }}>Click to select your AMFI/Karvy CAS PDF</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+              <div className="form-group full-width">
+                <div style={{ padding: '12px', background: 'rgba(0, 208, 156, 0.1)', borderRadius: '10px', border: '1px solid rgba(0, 208, 156, 0.3)' }}>
+                  <p style={{ margin: 0, fontSize: '13px', color: '#E0E0FF', lineHeight: 1.5 }}>
+                    <strong>Automated Parsing:</strong> We will securely read your valid CAMS/KFintech CAS statement and import all folios, historical units, amounts, NAV along with derived categories and risk metrics directly into your ledger.
+                  </p>
+                </div>
+              </div>
+            </>
           )}
         </div>
 
@@ -394,7 +467,7 @@ function AddTransactionModal({ onClose, onSuccess, token }) {
           <motion.button className="btn-submit" onClick={submit} disabled={submitting}
             whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}>
             {submitting ? <RefreshCw size={14} className="spin" /> : <Plus size={14} />}
-            {submitting ? (mode === 'bulk-sip' ? 'Generating...' : 'Recording...') : (mode === 'bulk-sip' ? 'Import Historical SIP' : 'Record Transaction')}
+            {submitting ? (mode === 'bulk-sip' ? 'Generating...' : mode === 'upload-cas' ? 'Uploading...' : 'Recording...') : (mode === 'bulk-sip' ? 'Import Historical SIP' : mode === 'upload-cas' ? 'Upload & Parse CAS' : 'Record Transaction')}
           </motion.button>
         </div>
       </motion.div>
@@ -541,6 +614,8 @@ export default function TransactionsPage() {
               <tr>
                 <th>Date</th>
                 <th>Fund</th>
+                <th>Category</th>
+                <th>Risk</th>
                 <th>Type</th>
                 <th>Amount</th>
                 <th>Units</th>
@@ -569,6 +644,25 @@ export default function TransactionsPage() {
                     <td className="txn-fund">
                       <div className="txn-fund-name">{t.schemeName || t.schemeAmfiCode}</div>
                       <div className="txn-fund-code">{t.schemeAmfiCode}</div>
+                    </td>
+                    <td>
+                      {t.category ? (
+                        <span style={{ fontSize: '11px', background: '#2C2C3E', padding: '2px 6px', borderRadius: '4px', border: '1px solid #3C3C4E', color: '#C0C0E0', display: 'inline-block', maxWidth: '100px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={t.category}>
+                          {t.category}
+                        </span>
+                      ) : <span style={{ color: '#555' }}>—</span>}
+                    </td>
+                    <td>
+                      {t.risk ? (
+                        <span style={{ 
+                          fontSize: '11px', 
+                          background: t.risk <= 2 ? '#00D09C20' : t.risk <= 4 ? '#FFB24720' : '#FF4D4D20', 
+                          color: t.risk <= 2 ? '#00D09C' : t.risk <= 4 ? '#FFB247' : '#FF4D4D',
+                          padding: '2px 6px', borderRadius: '4px', border: `1px solid ${t.risk <= 2 ? '#00D09C50' : t.risk <= 4 ? '#FFB24750' : '#FF4D4D50'}` 
+                        }}>
+                          Risk {t.risk}
+                        </span>
+                      ) : <span style={{ color: '#555' }}>—</span>}
                     </td>
                     <td><TxnTypeBadge type={t.transactionType} /></td>
                     <td className={`txn-amount ${isPurchaseType(t.transactionType) ? 'green' : isRedemptionType(t.transactionType) ? 'red' : ''}`}>

@@ -260,7 +260,10 @@ public class AnalyticsService {
             String cat1 = (String) fund1.get("schemeType");
             
             // Add Node
-            matrixNodes.add(Map.of("id", id1, "name", name1, "category", cat1));
+            matrixNodes.add(Map.of(
+                "id", id1 != null ? id1 : "UNKNOWN_ID_" + i, 
+                "name", name1 != null ? name1 : "Unknown", 
+                "category", cat1 != null ? cat1 : "Unknown"));
 
             for (int j = i + 1; j < portfolio.size(); j++) {
                 Map<String, Object> fund2 = portfolio.get(j);

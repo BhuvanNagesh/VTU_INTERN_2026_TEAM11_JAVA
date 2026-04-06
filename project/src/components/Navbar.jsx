@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { TrendingUp, Bell, Search, Menu, X, User, LogOut, LayoutDashboard, List, UserCircle, Activity } from 'lucide-react';
+import { TrendingUp, Bell, Search, Menu, X, User, LogOut, LayoutDashboard, List, UserCircle, Activity, Sun, Moon } from 'lucide-react';
 import './Navbar.css';
 
 const tickerData = [
@@ -24,9 +24,10 @@ const navItems = [
 ];
 
 // We now accept the user and auth functions passed down from App.jsx
-const Navbar = ({ scrollY, user, onSignIn, onSignUp, onSignOut }) => {
+const Navbar = ({ scrollY, user, onSignIn, onSignUp, onSignOut, theme, onToggleTheme }) => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const isScrolled = scrollY > 50;
+  const isDark = theme === 'dark';
 
   return (
     <>
@@ -101,11 +102,34 @@ const Navbar = ({ scrollY, user, onSignIn, onSignUp, onSignOut }) => {
                 </button>
               )}
 
+              {/* Theme Toggle */}
+              <motion.button
+                className="theme-toggle-btn"
+                onClick={onToggleTheme}
+                aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+                whileHover={{ scale: 1.08 }}
+                whileTap={{ scale: 0.92 }}
+                title={isDark ? 'Light Mode' : 'Dark Mode'}
+              >
+                <AnimatePresence mode="wait" initial={false}>
+                  <motion.span
+                    key={theme}
+                    initial={{ opacity: 0, rotate: -30, scale: 0.7 }}
+                    animate={{ opacity: 1, rotate: 0, scale: 1 }}
+                    exit={{ opacity: 0, rotate: 30, scale: 0.7 }}
+                    transition={{ duration: 0.2 }}
+                    style={{ display: 'flex', alignItems: 'center' }}
+                  >
+                    {isDark ? <Sun size={17} /> : <Moon size={17} />}
+                  </motion.span>
+                </AnimatePresence>
+              </motion.button>
+
               {/* Conditional Rendering: Show Profile if logged in, otherwise show Auth buttons */}
               {user ? (
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#fff', fontSize: '14px', fontWeight: '500' }}>
-                    <User size={16} color="#00D09C" />
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-primary)', fontSize: '14px', fontWeight: '500' }}>
+                    <User size={16} color="var(--accent-green)" />
                     <span>Hi, {user.fullName ? user.fullName.split(' ')[0] : 'User'}</span>
                   </div>
                   <motion.button

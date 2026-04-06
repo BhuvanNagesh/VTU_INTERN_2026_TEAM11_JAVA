@@ -147,6 +147,21 @@ public class ReturnsService {
             .findByUserIdOrderByTransactionDateDescCreatedAtDesc(userId);
         List<Map<String, Object>> holdings = transactionService.getPortfolioSummary(userId);
 
+        // Enrich holdings with sebiCategory + planType from scheme_master
+        for (Map<String, Object> h : holdings) {
+            String code = (String) h.get("schemeAmfiCode");
+            if (code != null) {
+                schemeRepo.findByAmfiCode(code).ifPresent(s -> {
+                    if (h.get("schemeType") == null && s.getSebiCategory() != null)
+                        h.put("schemeType", s.getSebiCategory());
+                    if (h.get("broadCategory") == null && s.getBroadCategory() != null)
+                        h.put("broadCategory", s.getBroadCategory());
+                    if (s.getRiskLevel() != null)
+                        h.put("riskLevel", s.getRiskLevel());
+                });
+            }
+        }
+
         BigDecimal totalInvested = BigDecimal.ZERO;
         BigDecimal totalCurrent = BigDecimal.ZERO;
 
@@ -164,6 +179,32 @@ public class ReturnsService {
         BigDecimal xirrVal = null;
         if (cashFlows.size() >= 2) xirrVal = xirr(cashFlows);
 
+        // ── Real growth timeline (monthly snapshots from actual tx dates) ──────
+        List<Map<String, Object>> growthTimeline = buildGrowthTimeline(txns, holdings);
+
+        // ── Category-level allocation for pie chart ───────────────────────────
+        Map<String, BigDecimal> categoryAlloc = new LinkedHashMap<>();
+        for (Map<String, Object> h : holdings) {
+            String cat = (String) h.getOrDefault("broadCategory", "Other");
+            if (cat == null || cat.isBlank() || cat.equalsIgnoreCase("UNKNOWN"))
+                cat = "Other";
+            BigDecimal cur = (BigDecimal) h.getOrDefault("currentValue", BigDecimal.ZERO);
+            if (cur == null) cur = BigDecimal.ZERO;
+            // Fall back to invested if current is zero (synthetic NAV)
+            if (cur.compareTo(BigDecimal.ZERO) == 0) {
+                cur = (BigDecimal) h.getOrDefault("investedAmount", BigDecimal.ZERO);
+                if (cur == null) cur = BigDecimal.ZERO;
+            }
+            categoryAlloc.merge(cat, cur, BigDecimal::add);
+        }
+        List<Map<String, Object>> categoryBreakdown = new ArrayList<>();
+        for (Map.Entry<String, BigDecimal> e : categoryAlloc.entrySet()) {
+            Map<String, Object> entry = new LinkedHashMap<>();
+            entry.put("category", e.getKey());
+            entry.put("value", e.getValue().setScale(2, RoundingMode.HALF_UP));
+            categoryBreakdown.add(entry);
+        }
+
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("totalInvested", totalInvested.setScale(2, RoundingMode.HALF_UP));
         result.put("totalCurrentValue", totalCurrent.setScale(2, RoundingMode.HALF_UP));
@@ -172,6 +213,8 @@ public class ReturnsService {
         result.put("xirrPct", xirrVal);
         result.put("holdings", holdings);
         result.put("transactionCount", txns.size());
+        result.put("growthTimeline", growthTimeline);
+        result.put("categoryBreakdown", categoryBreakdown);
 
         return result;
     }
@@ -223,20 +266,98 @@ public class ReturnsService {
             String type = t.getTransactionType();
             if (type == null) continue;
 
-            // Purchases are outflows (negative), redemptions/dividends are inflows (positive)
             if (isPurchase(t)) {
                 flows.add(new CashFlow(t.getTransactionDate(), t.getAmount().negate()));
             } else if (isRedemption(t) || "DIVIDEND_PAYOUT".equals(type)) {
                 flows.add(new CashFlow(t.getTransactionDate(), t.getAmount()));
             }
         }
-        // Add current value as final positive cashflow
         if (currentValue != null && currentValue.compareTo(BigDecimal.ZERO) > 0) {
             flows.add(new CashFlow(LocalDate.now(), currentValue));
         }
-        // Sort by date
         flows.sort(Comparator.comparing(cf -> cf.date));
         return flows;
+    }
+
+    /**
+     * Builds a real monthly growth timeline from actual transaction dates.
+     * Returns list of {month, invested, value} where:
+     *   invested = cumulative amount put in up to that month
+     *   value    = estimated current value (invested * current/totalInvested ratio)
+     * This replaces the fake simulated curve in the frontend.
+     */
+    private List<Map<String, Object>> buildGrowthTimeline(
+            List<Transaction> txns, List<Map<String, Object>> holdings) {
+        if (txns.isEmpty()) return List.of();
+
+        // Compute total invested and return ratio
+        BigDecimal totalInvested = holdings.stream()
+            .map(h -> (BigDecimal) h.getOrDefault("investedAmount", BigDecimal.ZERO))
+            .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal totalCurrent = holdings.stream()
+            .map(h -> (BigDecimal) h.getOrDefault("currentValue", BigDecimal.ZERO))
+            .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        // If current value is still zero (all NAVs missing), use invested as proxy
+        if (totalCurrent.compareTo(BigDecimal.ZERO) == 0) totalCurrent = totalInvested;
+
+        double returnRatio = totalInvested.compareTo(BigDecimal.ZERO) > 0
+            ? totalCurrent.divide(totalInvested, 8, RoundingMode.HALF_UP).doubleValue()
+            : 1.0;
+
+        // Collect monthly invested totals starting from first transaction date
+        List<Transaction> sorted = new ArrayList<>(txns);
+        sorted.sort(Comparator.comparing(Transaction::getTransactionDate));
+
+        LocalDate first = sorted.get(0).getTransactionDate();
+        LocalDate now = LocalDate.now();
+        LocalDate cursor = first.withDayOfMonth(1);
+
+        // Show from first transaction date, capped at 60 months for UI legibility
+        LocalDate maxStart = now.minusMonths(59).withDayOfMonth(1);
+        LocalDate start = cursor.isBefore(maxStart) ? maxStart : cursor;
+
+        Map<String, BigDecimal> monthlyInvested = new LinkedHashMap<>();
+        for (Transaction t : sorted) {
+            if (!isPurchase(t) || t.getAmount() == null) continue;
+            String key = t.getTransactionDate().getYear() + "-"
+                + String.format("%02d", t.getTransactionDate().getMonthValue());
+            monthlyInvested.merge(key, t.getAmount(), BigDecimal::add);
+        }
+
+        // Pre-sum all investments that occurred BEFORE the window start (carried forward)
+        BigDecimal cumulative = BigDecimal.ZERO;
+        for (Map.Entry<String, BigDecimal> e : monthlyInvested.entrySet()) {
+            // Parse the key "yyyy-MM" and compare to window start
+            try {
+                String[] parts = e.getKey().split("-");
+                LocalDate monthDate = LocalDate.of(Integer.parseInt(parts[0]),
+                    Integer.parseInt(parts[1]), 1);
+                if (monthDate.isBefore(start)) {
+                    cumulative = cumulative.add(e.getValue());
+                }
+            } catch (Exception ignored) {}
+        }
+
+        List<Map<String, Object>> timeline = new ArrayList<>();
+        cursor = start;
+        while (!cursor.isAfter(now)) {
+            String key = cursor.getYear() + "-" + String.format("%02d", cursor.getMonthValue());
+            BigDecimal added = monthlyInvested.getOrDefault(key, BigDecimal.ZERO);
+            cumulative = cumulative.add(added);
+
+            Map<String, Object> point = new LinkedHashMap<>();
+            String label = cursor.getMonth().name().substring(0, 3) + " '"
+                + String.valueOf(cursor.getYear()).substring(2);
+            point.put("month", label);
+            point.put("invested", cumulative.setScale(2, RoundingMode.HALF_UP));
+            // Value grows proportionally with portfolio return ratio
+            double valueDouble = cumulative.doubleValue() * returnRatio;
+            point.put("value", BigDecimal.valueOf(valueDouble).setScale(2, RoundingMode.HALF_UP));
+            timeline.add(point);
+            cursor = cursor.plusMonths(1);
+        }
+        return timeline;
     }
 
     private boolean isPurchase(Transaction t) {

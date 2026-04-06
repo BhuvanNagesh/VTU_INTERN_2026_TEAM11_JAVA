@@ -39,7 +39,8 @@ public class AnalyticsController {
             Long userId = extractUserId(authHeader);
             return ResponseEntity.ok(analyticsService.getRiskProfile(userId));
         } catch (RuntimeException e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            String errorMsg = e.getMessage() != null ? e.getMessage() : "An error occurred";
+            return ResponseEntity.badRequest().body(Map.of("error", errorMsg));
         }
     }
 
@@ -49,7 +50,8 @@ public class AnalyticsController {
             Long userId = extractUserId(authHeader);
             return ResponseEntity.ok(analyticsService.getSipIntelligence(userId));
         } catch (RuntimeException e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            String errorMsg = e.getMessage() != null ? e.getMessage() : "An error occurred";
+            return ResponseEntity.badRequest().body(Map.of("error", errorMsg));
         }
     }
 
@@ -59,7 +61,8 @@ public class AnalyticsController {
             Long userId = extractUserId(authHeader);
             return ResponseEntity.ok(analyticsService.getFundOverlapMatrix(userId));
         } catch (RuntimeException e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            String errorMsg = e.getMessage() != null ? e.getMessage() : "An error occurred";
+            return ResponseEntity.badRequest().body(Map.of("error", errorMsg));
         }
     }
 
@@ -73,7 +76,8 @@ public class AnalyticsController {
             analyticsService.saveRiskProfile(userId, profile);
             return ResponseEntity.ok(Map.of("message", "Risk profile updated to " + profile));
         } catch (RuntimeException e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            String errorMsg = e.getMessage() != null ? e.getMessage() : "An error occurred";
+            return ResponseEntity.badRequest().body(Map.of("error", errorMsg));
         }
     }
 }

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { ThemeProvider, useTheme } from './context/ThemeContext';
 import Navbar from './components/Navbar';
 import Hero from './components/Hero';
 import MutualFundSection from './components/MutualFundSection';
@@ -46,6 +47,7 @@ function AppContent() {
   const [authOpen, setAuthOpen] = useState(false);
   const [authTab, setAuthTab] = useState('signin');
   const { user, signOut } = useAuth();
+  const { theme, toggleTheme } = useTheme();
 
   useEffect(() => {
     const handleScroll = () => setScrollY(window.scrollY);
@@ -67,6 +69,8 @@ function AppContent() {
         onSignIn={() => openAuth('signin')}
         onSignUp={() => openAuth('signup')}
         onSignOut={signOut}
+        theme={theme}
+        onToggleTheme={toggleTheme}
       />
       <main>
         <Routes>
@@ -91,9 +95,11 @@ function AppContent() {
 function App() {
   return (
     <BrowserRouter>
-      <AuthProvider>
-        <AppContent />
-      </AuthProvider>
+      <ThemeProvider>
+        <AuthProvider>
+          <AppContent />
+        </AuthProvider>
+      </ThemeProvider>
     </BrowserRouter>
   );
 }

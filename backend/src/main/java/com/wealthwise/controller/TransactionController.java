@@ -3,11 +3,13 @@ package com.wealthwise.controller;
 import com.wealthwise.model.Transaction;
 import com.wealthwise.repository.UserRepository;
 import com.wealthwise.security.JwtService;
+import com.wealthwise.service.CasPdfParserService;
 import com.wealthwise.service.TransactionService;
 import com.wealthwise.service.TransactionService.TransactionRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 import java.util.Map;
@@ -19,6 +21,7 @@ import java.util.Optional;
 public class TransactionController {
 
     @Autowired private TransactionService transactionService;
+    @Autowired private CasPdfParserService casPdfParserService;
     @Autowired private JwtService jwtService;
     @Autowired private UserRepository userRepository;
 
@@ -48,6 +51,24 @@ public class TransactionController {
             List<Transaction> txns = transactionService.bulkCreateSip(request, userId);
             return ResponseEntity.ok(Map.of("message", "Successfully generated " + txns.size() + " SIP transactions", "transactions", txns));
         } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    // ─── CAS Upload ───────────────────────────────────────────────────
+
+    @PostMapping("/upload-cas")
+    public ResponseEntity<?> uploadCas(
+            @RequestHeader("Authorization") String authHeader,
+            @RequestParam("file") MultipartFile file) {
+        try {
+            Long userId = extractUserId(authHeader);
+            if (file.isEmpty() || file.getContentType() == null || !file.getContentType().equals("application/pdf")) {
+                return ResponseEntity.badRequest().body(Map.of("error", "Valid PDF file is required"));
+            }
+            Map<String, Object> result = casPdfParserService.parseCas(file, userId);
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }

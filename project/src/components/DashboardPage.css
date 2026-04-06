@@ -307,3 +307,198 @@
 
 .spin { animation: spin 1s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
+
+/* Full-page error state */
+.dash-error-full {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 60vh;
+  gap: 16px;
+  text-align: center;
+}
+.dash-error-full h2 { font-size: 22px; font-weight: 700; color: #fff; }
+.dash-error-full p { color: var(--text-secondary); font-size: 14px; max-width: 360px; }
+
+/* Inline error banner */
+.dash-error {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255,77,77,0.08);
+  border: 1px solid rgba(255,77,77,0.25);
+  color: #FF4D4D;
+  padding: 12px 18px;
+  border-radius: 10px;
+  font-size: 13px;
+  margin-bottom: 24px;
+}
+
+/* NAV Pending badge */
+.nav-pending-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(255,178,71,0.1);
+  color: #FFB247;
+  border: 1px solid rgba(255,178,71,0.25);
+  font-size: 10px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 10px;
+  letter-spacing: 0.3px;
+  cursor: help;
+}
+.nav-pending { color: #FFB247; font-size: 11px; }
+
+/* Plan badges */
+.plan-badge {
+  display: inline-block;
+  font-size: 9px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 8px;
+  margin-left: 6px;
+  letter-spacing: 0.3px;
+  vertical-align: middle;
+}
+.plan-badge.direct { background: rgba(0,242,152,0.1); color: #00F298; }
+.plan-badge.regular { background: rgba(255,178,71,0.1); color: #FFB247; }
+
+/* Units col hint */
+.units-col { color: var(--text-tertiary) !important; font-size: 12px !important; }
+
+/* NAV sync hint bar */
+.nav-sync-hint {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 16px;
+  padding: 12px 16px;
+  background: rgba(255,178,71,0.05);
+  border: 1px solid rgba(255,178,71,0.15);
+  border-radius: 10px;
+  color: var(--text-secondary);
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+.nav-sync-hint svg { margin-top: 2px; color: #FFB247; flex-shrink: 0; }
+.nav-sync-hint code {
+  background: rgba(255,255,255,0.07);
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-size: 11px;
+  color: #00F298;
+}
+
+/* Chart-wide takes larger portion */
+@media (min-width: 1000px) {
+  .charts-row { grid-template-columns: 3fr 2fr; }
+}
+
+/* Category badge extras */
+.cat-badge.solution { background: rgba(255,178,71,0.1); color: #FFB247; border-color: rgba(255,178,71,0.25); }
+.cat-badge.other, .cat-badge.unknown { background: rgba(150,150,150,0.08); color: #888; border-color: rgba(150,150,150,0.15); }
+
+/* ═══════════════════════════════════════════════════════════════
+   LIGHT MODE OVERRIDES
+═══════════════════════════════════════════════════════════════ */
+[data-theme="light"] .page-title { color: var(--text-primary); }
+[data-theme="light"] .page-title .text-gradient {
+  background: linear-gradient(135deg, #00A86B, #00CC88);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+[data-theme="light"] .refresh-btn {
+  background: rgba(0,0,0,0.05);
+  border-color: rgba(0,0,0,0.12);
+  color: var(--text-secondary);
+}
+[data-theme="light"] .refresh-btn:hover { border-color: rgba(0,168,107,0.4); color: var(--accent-green); }
+
+[data-theme="light"] .kpi-card {
+  background: rgba(255,255,255,0.85);
+  border-color: rgba(0,0,0,0.08);
+  box-shadow: 0 2px 16px rgba(0,0,0,0.08);
+}
+[data-theme="light"] .kpi-card:hover { border-color: rgba(0,168,107,0.3); box-shadow: var(--glow-green); }
+[data-theme="light"] .kpi-card::before {
+  background: radial-gradient(ellipse at top left, rgba(0,168,107,0.05), transparent 70%);
+}
+[data-theme="light"] .kpi-value { color: var(--text-primary); }
+[data-theme="light"] .positive-card { border-color: rgba(0,168,107,0.25) !important; }
+[data-theme="light"] .negative-card { border-color: rgba(224,25,78,0.25) !important; }
+[data-theme="light"] .xirr-card::before {
+  background: radial-gradient(ellipse at top left, rgba(107,63,204,0.05), transparent 70%);
+}
+[data-theme="light"] .kpi-skeleton {
+  background: rgba(0,0,0,0.06);
+  background-image: linear-gradient(90deg, rgba(0,0,0,0.04) 25%, rgba(0,0,0,0.10) 50%, rgba(0,0,0,0.04) 75%);
+}
+
+[data-theme="light"] .chart-tooltip {
+  background: rgba(255,255,255,0.97);
+  border-color: rgba(0,0,0,0.1);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.15);
+}
+[data-theme="light"] .ctip-label {
+  color: var(--text-secondary);
+  border-bottom-color: rgba(0,0,0,0.08);
+}
+[data-theme="light"] .chart-title { color: var(--text-primary); }
+
+[data-theme="light"] .holdings-table th {
+  color: var(--text-tertiary);
+  border-bottom-color: var(--border-card);
+}
+[data-theme="light"] .holdings-table tr:not(:last-child) td { border-bottom-color: rgba(0,0,0,0.05); }
+[data-theme="light"] .holdings-table tr:hover td { background: var(--table-row-hover); }
+[data-theme="light"] .h-fund-name { color: var(--text-primary); }
+[data-theme="light"] .h-num { color: var(--text-secondary); }
+
+[data-theme="light"] .cat-badge {
+  background: var(--badge-other-bg);
+  color: var(--badge-other-color);
+  border-color: rgba(0,0,0,0.1);
+}
+[data-theme="light"] .cat-badge.equity {
+  background: var(--badge-equity-bg);
+  color: var(--badge-equity-color);
+  border-color: rgba(0,168,107,0.2);
+}
+[data-theme="light"] .cat-badge.debt {
+  background: var(--badge-debt-bg);
+  color: var(--badge-debt-color);
+  border-color: rgba(107,63,204,0.2);
+}
+[data-theme="light"] .cat-badge.hybrid {
+  background: var(--badge-hybrid-bg);
+  color: var(--badge-hybrid-color);
+  border-color: rgba(0,112,204,0.2);
+}
+
+[data-theme="light"] .empty-card {
+  background: rgba(255,255,255,0.85);
+  border-color: rgba(0,0,0,0.08);
+}
+[data-theme="light"] .empty-card h2 { color: var(--text-primary); }
+
+[data-theme="light"] .dash-error-full h2 { color: var(--text-primary); }
+
+[data-theme="light"] .nav-sync-hint {
+  background: rgba(255,178,71,0.04);
+  border-color: rgba(224,140,0,0.2);
+}
+[data-theme="light"] .nav-sync-hint code {
+  background: rgba(0,0,0,0.06);
+  color: var(--accent-green);
+}
+
+[data-theme="light"] .badge-m09 {
+  background: rgba(0,168,107,0.10);
+  color: var(--accent-green);
+}
+

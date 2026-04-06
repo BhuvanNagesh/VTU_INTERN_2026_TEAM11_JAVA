@@ -256,3 +256,23 @@
         font-size: 26px;
     }
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   LIGHT MODE OVERRIDES
+═══════════════════════════════════════════════════════════════ */
+[data-theme="light"] .perf-pill {
+  background: rgba(0, 0, 0, 0.04);
+  border-color: rgba(0, 0, 0, 0.09);
+}
+[data-theme="light"] .perf-pill:hover {
+  background: rgba(0, 168, 107, 0.06);
+  border-color: rgba(0, 168, 107, 0.18);
+}
+
+[data-theme="light"] .an-tooltip {
+  background: rgba(255, 255, 255, 0.97);
+  border-color: rgba(0, 168, 107, 0.2);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+[data-theme="light"] .an-tooltip-label { color: var(--text-tertiary); }
+[data-theme="light"] .an-tooltip-val { color: var(--text-primary); }

@@ -459,3 +459,41 @@
     font-size: clamp(36px, 8vw, 52px);
   }
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   LIGHT MODE OVERRIDES
+═══════════════════════════════════════════════════════════════ */
+[data-theme="light"] .hero-btn-ghost {
+  border-color: rgba(0, 0, 0, 0.15);
+  color: var(--text-secondary);
+}
+[data-theme="light"] .hero-btn-ghost:hover {
+  color: var(--text-primary);
+  border-color: rgba(0, 168, 107, 0.35);
+}
+
+[data-theme="light"] .hero-trust {
+  border-top-color: rgba(0, 0, 0, 0.07);
+}
+
+[data-theme="light"] .portfolio-card::before {
+  background: linear-gradient(135deg, rgba(0, 168, 107, 0.04), transparent);
+}
+
+[data-theme="light"] .mini-card {
+  background: rgba(255, 255, 255, 0.85);
+  border: 1px solid rgba(0, 0, 0, 0.07);
+}
+
+[data-theme="light"] .chart-tooltip {
+  background: rgba(255, 255, 255, 0.97);
+  border-color: rgba(0, 168, 107, 0.2);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+[data-theme="light"] .tooltip-label { color: var(--text-tertiary); }
+
+[data-theme="light"] .grid-overlay {
+  background-image:
+    linear-gradient(rgba(0, 168, 107, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 168, 107, 0.035) 1px, transparent 1px);
+}

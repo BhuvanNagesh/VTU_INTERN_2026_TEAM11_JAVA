@@ -36,4 +36,10 @@ public interface SchemeRepository extends JpaRepository<Scheme, Long> {
     long countByIsActiveTrue();
 
     List<Scheme> findByBroadCategoryAndIsActiveTrue(String broadCategory, Pageable pageable);
+
+    Optional<Scheme> findByIsinGrowth(String isinGrowth);
+
+    Optional<Scheme> findByIsinIdcw(String isinIdcw);
+
+    List<Scheme> findBySchemeNameContainingIgnoreCaseAndIsActiveTrue(String keyword);
 }

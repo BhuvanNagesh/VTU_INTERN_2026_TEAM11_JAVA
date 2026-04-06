@@ -1,0 +1,31 @@
+
+> wealthwise@0.0.0 build
+> vite build
+
+[36mvite v7.3.1 [32mbuilding client environment for production...[36m[39m
+transforming...
+[32m✓[39m 21 modules transformed.
+[31m✗[39m Build failed in 144ms
+[31merror during build:
+[31m[vite:esbuild] Transform failed with 1 error:
+D:/Data/Bhuvan Nagesh/Genesis Internship/Project/Project/project-bolt-github-kqfaysnh/project/src/components/TransactionsPage.jsx:411:12: ERROR: Expected "}" but found ":"[31m
+file: [36mD:/Data/Bhuvan Nagesh/Genesis Internship/Project/Project/project-bolt-github-kqfaysnh/project/src/components/TransactionsPage.jsx:411:12[31m
+[33m
+[33mExpected "}" but found ":"[33m
+409 |                </div>
+410 |              </>
+411 |            ) : (
+    |              ^
+412 |              <>
+413 |                {/* Upload CAS */}
+[31m
+    at failureErrorWithLog (D:\Data\Bhuvan Nagesh\Genesis Internship\Project\Project\project-bolt-github-kqfaysnh\project\node_modules\esbuild\lib\main.js:1467:15)
+    at D:\Data\Bhuvan Nagesh\Genesis Internship\Project\Project\project-bolt-github-kqfaysnh\project\node_modules\esbuild\lib\main.js:736:50
+    at responseCallbacks.<computed> (D:\Data\Bhuvan Nagesh\Genesis Internship\Project\Project\project-bolt-github-kqfaysnh\project\node_modules\esbuild\lib\main.js:603:9)
+    at handleIncomingPacket (D:\Data\Bhuvan Nagesh\Genesis Internship\Project\Project\project-bolt-github-kqfaysnh\project\node_modules\esbuild\lib\main.js:658:12)
+    at Socket.readFromStdout (D:\Data\Bhuvan Nagesh\Genesis Internship\Project\Project\project-bolt-github-kqfaysnh\project\node_modules\esbuild\lib\main.js:581:7)
+    at Socket.emit (node:events:508:28)
+    at addChunk (node:internal/streams/readable:559:12)
+    at readableAddChunkPushByteMode (node:internal/streams/readable:510:3)
+    at Readable.push (node:internal/streams/readable:390:5)
+    at Pipe.onStreamRead (node:internal/stream_base_commons:189:23)[39m

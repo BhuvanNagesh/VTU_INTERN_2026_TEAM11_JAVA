@@ -4,10 +4,13 @@
   box-sizing: border-box;
 }
 
-:root {
+/* ── Dark Theme (default) ────────────────────────────────────────────── */
+:root,
+[data-theme="dark"] {
   --bg-primary: #05070D;
   --bg-secondary: #0D1018;
   --bg-tertiary: #161A26;
+  --bg-card: rgba(16, 20, 31, 0.75);
   --accent-green: #00F298;
   --accent-green-glow: rgba(0, 242, 152, 0.4);
   --accent-purple: #8C52FF;
@@ -17,15 +20,72 @@
   --text-secondary: #9BA1B0;
   --text-tertiary: #5A6273;
   --border-subtle: rgba(255, 255, 255, 0.05);
+  --border-card: rgba(255, 255, 255, 0.06);
   --glow-green: 0 0 25px rgba(0, 242, 152, 0.4);
   --glow-purple: 0 0 25px rgba(140, 82, 255, 0.4);
-
+  --shadow-card: 0 8px 32px rgba(0, 0, 0, 0.4);
+  --glass-bg: rgba(16, 20, 31, 0.55);
+  --glass-border: rgba(255, 255, 255, 0.04);
+  --input-bg: rgba(255, 255, 255, 0.04);
+  --input-border: rgba(255, 255, 255, 0.08);
+  --scrollbar-track: #0D1018;
+  --badge-equity-bg: rgba(0, 242, 152, 0.12);
+  --badge-equity-color: #00F298;
+  --badge-debt-bg: rgba(140, 82, 255, 0.12);
+  --badge-debt-color: #A67FFF;
+  --badge-hybrid-bg: rgba(0, 210, 255, 0.12);
+  --badge-hybrid-color: #00D2FF;
+  --badge-other-bg: rgba(150, 150, 160, 0.12);
+  --badge-other-color: #9BA1B0;
+  --table-row-hover: rgba(255, 255, 255, 0.03);
+  --ticker-bg: rgba(0, 242, 152, 0.04);
+  --theme-toggle-bg: rgba(255, 255, 255, 0.08);
+  --theme-toggle-hover: rgba(255, 255, 255, 0.14);
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
+
+/* ── Light Theme ─────────────────────────────────────────────────────── */
+[data-theme="light"] {
+  --bg-primary: #F0F4FF;
+  --bg-secondary: #E4EAF8;
+  --bg-tertiary: #D6DFEF;
+  --bg-card: rgba(255, 255, 255, 0.92);
+  --accent-green: #00A86B;
+  --accent-green-glow: rgba(0, 168, 107, 0.3);
+  --accent-purple: #6B3FCC;
+  --accent-red: #E0194E;
+  --accent-blue: #0070CC;
+  --text-primary: #0D1117;
+  --text-secondary: #4B5563;
+  --text-tertiary: #9CA3AF;
+  --border-subtle: rgba(0, 0, 0, 0.07);
+  --border-card: rgba(0, 0, 0, 0.09);
+  --glow-green: 0 0 20px rgba(0, 168, 107, 0.25);
+  --glow-purple: 0 0 20px rgba(107, 63, 204, 0.25);
+  --shadow-card: 0 4px 24px rgba(0, 0, 0, 0.10);
+  --glass-bg: rgba(255, 255, 255, 0.75);
+  --glass-border: rgba(0, 0, 0, 0.07);
+  --input-bg: rgba(0, 0, 0, 0.04);
+  --input-border: rgba(0, 0, 0, 0.12);
+  --scrollbar-track: #E4EAF8;
+  --badge-equity-bg: rgba(0, 168, 107, 0.10);
+  --badge-equity-color: #007A4E;
+  --badge-debt-bg: rgba(107, 63, 204, 0.10);
+  --badge-debt-color: #5530AA;
+  --badge-hybrid-bg: rgba(0, 112, 204, 0.10);
+  --badge-hybrid-color: #0058AA;
+  --badge-other-bg: rgba(75, 85, 99, 0.10);
+  --badge-other-color: #4B5563;
+  --table-row-hover: rgba(0, 168, 107, 0.04);
+  --ticker-bg: rgba(0, 168, 107, 0.05);
+  --theme-toggle-bg: rgba(0, 0, 0, 0.07);
+  --theme-toggle-hover: rgba(0, 0, 0, 0.12);
+}
+
 
 html {
   scroll-behavior: smooth;
@@ -74,12 +134,12 @@ button {
 
 /* Global utility classes */
 .glassmorphism {
-  background: rgba(16, 20, 31, 0.55);
+  background: var(--glass-bg);
   backdrop-filter: blur(24px);
   -webkit-backdrop-filter: blur(24px);
-  border: 1px solid rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--glass-border);
   border-radius: 16px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  box-shadow: var(--shadow-card);
 }
 
 .glow-border {
@@ -179,7 +239,7 @@ section:not(:last-child)::after {
 }
 
 ::-webkit-scrollbar-track {
-  background: var(--bg-secondary);
+  background: var(--scrollbar-track);
 }
 
 ::-webkit-scrollbar-thumb {

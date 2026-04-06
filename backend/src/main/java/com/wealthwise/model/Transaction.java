@@ -66,6 +66,12 @@ public class Transaction {
     @Column(name = "created_at")
     private LocalDateTime createdAt = LocalDateTime.now();
 
+    @Column(name = "category", length = 100)
+    private String category;
+
+    @Column(name = "risk")
+    private Integer risk;
+
     // ─── Constructors ────────────────────────────────────────────────────────
 
     public Transaction() {}
@@ -122,4 +128,10 @@ public class Transaction {
 
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+
+    public String getCategory() { return category; }
+    public void setCategory(String category) { this.category = category; }
+
+    public Integer getRisk() { return risk; }
+    public void setRisk(Integer risk) { this.risk = risk; }
 }

@@ -163,44 +163,78 @@ public class NavService {
      * and triggers a NAV fetch. This avoids needing the full seed.
      */
     public Scheme ensureSchemeExists(String amfiCode) {
-        return schemeRepo.findByAmfiCode(amfiCode).orElseGet(() -> {
-            // Fetch scheme metadata from mfapi.in
-            try {
-                Map<String, Object> apiData = fetchFromMfApi(amfiCode);
-                if (apiData != null) {
-                    Scheme s = new Scheme();
-                    s.setAmfiCode(amfiCode);
-                    @SuppressWarnings("unchecked")
-                    Map<String, String> meta = (Map<String, String>) apiData.get("meta");
-                    if (meta != null) {
-                        s.setSchemeName(meta.getOrDefault("scheme_name", "Scheme " + amfiCode));
-                        s.setAmcName(meta.getOrDefault("fund_house", "Unknown AMC"));
-                        s.setSebiCategory(meta.getOrDefault("scheme_category", null));
-                        String type = meta.getOrDefault("scheme_type", "");
-                        s.setBroadCategory(inferBroadCategory(type, s.getSebiCategory()));
-                        s.setFundType("OPEN_ENDED");
-                        s.setPlanType(inferPlanType(s.getSchemeName()));
-                        s.setOptionType(inferOptionType(s.getSchemeName()));
+        // Check if already in DB
+        Optional<Scheme> existing = schemeRepo.findByAmfiCode(amfiCode);
+        if (existing.isPresent()) {
+            Scheme s = existing.get();
+            // Re-enrich from mfapi.in if category is missing or still OTHER
+            boolean needsEnrich = s.getBroadCategory() == null
+                || s.getBroadCategory().isBlank()
+                || "OTHER".equalsIgnoreCase(s.getBroadCategory())
+                || "UNKNOWN".equalsIgnoreCase(s.getBroadCategory());
+            if (needsEnrich) {
+                try {
+                    Map<String, Object> apiData = fetchFromMfApi(amfiCode);
+                    if (apiData != null) {
+                        @SuppressWarnings("unchecked")
+                        Map<String, String> meta = (Map<String, String>) apiData.get("meta");
+                        if (meta != null) {
+                            String sebiCat = meta.getOrDefault("scheme_category", s.getSebiCategory());
+                            String type    = meta.getOrDefault("scheme_type", "");
+                            String broad   = inferBroadCategory(type, sebiCat);
+                            if (!"OTHER".equalsIgnoreCase(broad)) {
+                                s.setSebiCategory(sebiCat);
+                                s.setBroadCategory(broad);
+                                if (s.getSchemeName() == null || s.getSchemeName().startsWith("Scheme "))
+                                    s.setSchemeName(meta.getOrDefault("scheme_name", s.getSchemeName()));
+                                schemeRepo.save(s);
+                                log.info("[NAV] Re-enriched " + amfiCode + " → " + broad + " / " + sebiCat);
+                            }
+                        }
                     }
-                    if (apiData.containsKey("latestNav")) {
-                        try { s.setLastNav(new BigDecimal(apiData.get("latestNav").toString())); } catch (Exception ignored) {}
-                    }
-                    if (apiData.containsKey("latestDate")) {
-                        try { s.setLastNavDate(LocalDate.parse(apiData.get("latestDate").toString(), MFAPI_DATE)); } catch (Exception ignored) {}
-                    }
-                    s.setIsActive(true);
-                    return schemeRepo.save(s);
+                } catch (Exception e) {
+                    log.warning("[NAV] Re-enrich failed for " + amfiCode + ": " + e.getMessage());
                 }
-            } catch (Exception e) {
-                log.warning("[NAV] ensureSchemeExists failed for " + amfiCode + ": " + e.getMessage());
             }
-            // Minimal fallback
-            Scheme s = new Scheme();
-            s.setAmfiCode(amfiCode);
-            s.setSchemeName("Scheme " + amfiCode);
-            s.setIsActive(true);
-            return schemeRepo.save(s);
-        });
+            return s;
+        }
+
+        // Not in DB — fetch from mfapi.in and create
+        try {
+            Map<String, Object> apiData = fetchFromMfApi(amfiCode);
+            if (apiData != null) {
+                Scheme s = new Scheme();
+                s.setAmfiCode(amfiCode);
+                @SuppressWarnings("unchecked")
+                Map<String, String> meta = (Map<String, String>) apiData.get("meta");
+                if (meta != null) {
+                    s.setSchemeName(meta.getOrDefault("scheme_name", "Scheme " + amfiCode));
+                    s.setAmcName(meta.getOrDefault("fund_house", "Unknown AMC"));
+                    s.setSebiCategory(meta.getOrDefault("scheme_category", null));
+                    String type = meta.getOrDefault("scheme_type", "");
+                    s.setBroadCategory(inferBroadCategory(type, s.getSebiCategory()));
+                    s.setFundType("OPEN_ENDED");
+                    s.setPlanType(inferPlanType(s.getSchemeName()));
+                    s.setOptionType(inferOptionType(s.getSchemeName()));
+                }
+                if (apiData.containsKey("latestNav")) {
+                    try { s.setLastNav(new BigDecimal(apiData.get("latestNav").toString())); } catch (Exception ignored) {}
+                }
+                if (apiData.containsKey("latestDate")) {
+                    try { s.setLastNavDate(LocalDate.parse(apiData.get("latestDate").toString(), MFAPI_DATE)); } catch (Exception ignored) {}
+                }
+                s.setIsActive(true);
+                return schemeRepo.save(s);
+            }
+        } catch (Exception e) {
+            log.warning("[NAV] ensureSchemeExists failed for " + amfiCode + ": " + e.getMessage());
+        }
+        // Minimal fallback
+        Scheme s = new Scheme();
+        s.setAmfiCode(amfiCode);
+        s.setSchemeName("Scheme " + amfiCode);
+        s.setIsActive(true);
+        return schemeRepo.save(s);
     }
 
     // ─── mfapi.in HTTP fetcher ────────────────────────────────────────────────
@@ -309,10 +343,40 @@ public class NavService {
     private String inferBroadCategory(String type, String category) {
         if (type == null && category == null) return "OTHER";
         String combined = ((type != null ? type : "") + " " + (category != null ? category : "")).toUpperCase();
-        if (combined.contains("EQUITY") || combined.contains("ELSS")) return "EQUITY";
-        if (combined.contains("DEBT") || combined.contains("LIQUID") || combined.contains("MONEY MARKET")) return "DEBT";
-        if (combined.contains("HYBRID") || combined.contains("BALANCED")) return "HYBRID";
-        if (combined.contains("SOLUTION") || combined.contains("CHILDREN") || combined.contains("RETIRE")) return "SOLUTION";
+
+        // ── Equity ──────────────────────────────────────────────────────────
+        if (combined.contains("EQUITY") || combined.contains("ELSS")
+                || combined.contains("LARGE CAP") || combined.contains("MID CAP")
+                || combined.contains("SMALL CAP") || combined.contains("MULTI CAP")
+                || combined.contains("FLEXI CAP") || combined.contains("FOCUSED")
+                || combined.contains("VALUE") || combined.contains("CONTRA")
+                || combined.contains("DIVIDEND YIELD") || combined.contains("SECTORAL")
+                || combined.contains("THEMATIC") || combined.contains("INDEX FUND")
+                || combined.contains("ETF"))                          return "EQUITY";
+
+        // ── Debt — includes Fixed Term / FMP / Interval / Close Ended ───────
+        if (combined.contains("DEBT") || combined.contains("LIQUID")
+                || combined.contains("MONEY MARKET") || combined.contains("OVERNIGHT")
+                || combined.contains("ULTRA SHORT") || combined.contains("LOW DURATION")
+                || combined.contains("SHORT DURATION") || combined.contains("MEDIUM DURATION")
+                || combined.contains("MEDIUM TO LONG") || combined.contains("LONG DURATION")
+                || combined.contains("DYNAMIC BOND") || combined.contains("CORPORATE BOND")
+                || combined.contains("CREDIT RISK") || combined.contains("BANKING AND PSU")
+                || combined.contains("BANKING & PSU") || combined.contains("GILT")
+                || combined.contains("FIXED TERM") || combined.contains("FMP")
+                || combined.contains("FIXED MATURITY") || combined.contains("INTERVAL")
+                || combined.contains("CLOSE ENDED") || combined.contains("FLOATER")
+                || combined.contains("INCOME"))                        return "DEBT";
+
+        // ── Hybrid ──────────────────────────────────────────────────────────
+        if (combined.contains("HYBRID") || combined.contains("BALANCED")
+                || combined.contains("ARBITRAGE") || combined.contains("EQUITY SAVINGS")
+                || combined.contains("MULTI ASSET"))                   return "HYBRID";
+
+        // ── Solution ────────────────────────────────────────────────────────
+        if (combined.contains("SOLUTION") || combined.contains("CHILDREN")
+                || combined.contains("RETIRE"))                        return "SOLUTION";
+
         return "OTHER";
     }
 

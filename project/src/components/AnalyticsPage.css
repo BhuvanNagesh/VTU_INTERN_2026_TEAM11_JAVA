@@ -2,7 +2,7 @@
   padding-top: 100px;
   min-height: 100vh;
   background: var(--bg-primary);
-  color: #fff;
+  color: var(--text-primary);
   padding-bottom: 60px;
 }
 
@@ -52,6 +52,7 @@
   display: flex;
   align-items: center;
   gap: 12px;
+  color: var(--text-primary);
 }
 .analytics-subtitle {
   color: var(--text-tertiary);
@@ -63,7 +64,7 @@
   display: flex;
   gap: 16px;
   margin-bottom: 30px;
-  border-bottom: 1px solid rgba(255,255,255,0.05);
+  border-bottom: 1px solid var(--border-subtle);
   padding-bottom: 16px;
 }
 .analytics-tab {
@@ -81,8 +82,8 @@
   transition: all 0.2s;
 }
 .analytics-tab:hover {
-  background: rgba(255,255,255,0.05);
-  color: #fff;
+  background: var(--table-row-hover);
+  color: var(--text-primary);
 }
 .analytics-tab.active {
   background: rgba(140, 82, 255, 0.15);
@@ -101,9 +102,10 @@
 .intel-card {
   padding: 24px;
   border-radius: 16px;
-  border: 1px solid rgba(255,255,255,0.05);
+  border: 1px solid var(--border-card);
   display: flex;
   flex-direction: column;
+  background: var(--bg-card);
 }
 .card-title {
   font-size: 14px;
@@ -126,7 +128,7 @@
 .risk-number {
   font-size: 48px;
   font-weight: 800;
-  color: #fff;
+  color: var(--text-primary);
   line-height: 1;
   text-shadow: 0 0 20px rgba(255,255,255,0.2);
 }
@@ -152,12 +154,13 @@
   padding: 12px;
   font-size: 12px;
   color: var(--text-tertiary);
-  border-bottom: 1px solid rgba(255,255,255,0.05);
+  border-bottom: 1px solid var(--border-subtle);
 }
 .sip-comparison-table td {
   padding: 16px 12px;
   font-size: 14px;
-  border-bottom: 1px solid rgba(255,255,255,0.03);
+  color: var(--text-primary);
+  border-bottom: 1px solid var(--border-subtle);
 }
 .sip-winner {
   color: #00D09C;
@@ -167,3 +170,30 @@
   color: #8C52FF;
   font-weight: 600;
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   LIGHT MODE OVERRIDES
+═══════════════════════════════════════════════════════════════ */
+[data-theme="light"] .survey-modal {
+  background: rgba(248, 250, 255, 0.98);
+  border-color: rgba(107, 63, 204, 0.2);
+  box-shadow: 0 30px 80px rgba(0,0,0,0.18);
+}
+[data-theme="light"] .survey-option {
+  background: rgba(0,0,0,0.04);
+  border-color: rgba(0,0,0,0.10);
+  color: var(--text-primary);
+}
+[data-theme="light"] .survey-option:hover {
+  background: rgba(107, 63, 204, 0.08);
+  border-color: rgba(107, 63, 204, 0.3);
+  color: var(--text-primary);
+}
+[data-theme="light"] .analytics-tab.active {
+  background: rgba(107, 63, 204, 0.1);
+  color: var(--accent-purple);
+}
+[data-theme="light"] .risk-number { text-shadow: none; }
+[data-theme="light"] .sip-comparison-table th { border-bottom-color: var(--border-card); }
+[data-theme="light"] .sip-comparison-table td { border-bottom-color: rgba(0,0,0,0.05); }
+

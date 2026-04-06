@@ -79,4 +79,20 @@ public class SchemeController {
     public ResponseEntity<?> count() {
         return ResponseEntity.ok(Map.of("activeSchemes", schemeService.countActive()));
     }
+
+    /**
+     * Trigger a fresh seed from AMFI NAVAll.txt.
+     * This updates broadCategory, sebiCategory, and riskLevel for ALL schemes.
+     * POST /api/schemes/seed
+     */
+    @PostMapping("/seed")
+    public ResponseEntity<?> seed() {
+        try {
+            Map<String, Object> result = schemeService.seedFromNavAll();
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            String errorMsg = e.getMessage() != null ? e.getMessage() : "Seed failed";
+            return ResponseEntity.internalServerError().body(Map.of("error", errorMsg));
+        }
+    }
 }

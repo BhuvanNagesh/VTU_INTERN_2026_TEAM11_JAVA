@@ -3,6 +3,7 @@ package com.wealthwise.service;
 import com.wealthwise.model.InvestmentLot;
 import com.wealthwise.model.Scheme;
 import com.wealthwise.model.Transaction;
+import com.wealthwise.parser.NavAllTxtParser;
 import com.wealthwise.repository.InvestmentLotRepository;
 import com.wealthwise.repository.SchemeRepository;
 import com.wealthwise.repository.TransactionRepository;
@@ -109,6 +110,32 @@ public class TransactionService {
         txn.setStampDuty(req.getStampDuty());
         txn.setSource("MANUAL");
         txn.setNotes(req.getNotes());
+        String category = scheme.getBroadCategory() != null ? scheme.getBroadCategory() : scheme.getSebiCategory();
+        Integer risk = scheme.getRiskLevel();
+
+        boolean badCategory = category == null || category.trim().isEmpty()
+            || "UNKNOWN".equalsIgnoreCase(category)
+            || "OTHER".equalsIgnoreCase(category);
+
+        if (badCategory || risk == null) {
+            String[] derived = CasPdfParserService.deriveCategory(scheme.getSchemeName());
+            if (badCategory) {
+                // Use derived broad category if it's more specific than OTHER
+                String derivedBroad = derived[0];
+                if (!"OTHER".equalsIgnoreCase(derivedBroad)) {
+                    category = derivedBroad;
+                } else if (category == null || category.trim().isEmpty()) {
+                    category = derived[1]; // fall back to sebi sub-category label
+                }
+                // else leave the existing non-null/non-blank category as-is
+            }
+            if (risk == null) {
+                risk = NavAllTxtParser.assignRiskLevel(derived[1], derived[0]);
+            }
+        }
+
+        txn.setCategory(category);
+        txn.setRisk(risk);
 
         Transaction saved = transactionRepo.save(txn);
 
@@ -165,6 +192,21 @@ public class TransactionService {
                 txn.setStampDuty(stampDutyAmount);
                 txn.setSource("MANUAL_SIP_BULK");
                 txn.setNotes("Auto-generated SIP transaction");
+                String bCategory = scheme.getBroadCategory() != null ? scheme.getBroadCategory() : scheme.getSebiCategory();
+                Integer bRisk = scheme.getRiskLevel();
+
+                if (bCategory == null || bCategory.trim().isEmpty() || "UNKNOWN".equalsIgnoreCase(bCategory) || bRisk == null) {
+                    String[] derived = CasPdfParserService.deriveCategory(scheme.getSchemeName());
+                    if (bCategory == null || bCategory.trim().isEmpty() || "UNKNOWN".equalsIgnoreCase(bCategory)) {
+                        bCategory = (derived[0] != null && !derived[0].equals("OTHER")) ? derived[0] : derived[1];
+                    }
+                    if (bRisk == null) {
+                        bRisk = NavAllTxtParser.assignRiskLevel(derived[1], derived[0]);
+                    }
+                }
+
+                txn.setCategory(bCategory);
+                txn.setRisk(bRisk);
 
                 Transaction saved = transactionRepo.save(txn);
                 createLot(saved, scheme, folio, units, nav, currentAmount);
