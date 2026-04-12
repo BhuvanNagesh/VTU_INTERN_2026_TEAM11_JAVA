@@ -61,6 +61,31 @@ export async function searchFunds(query) {
     }));
 }
 
+/**
+ * Fetch full NAV history for a scheme code.
+ * Returns: array of { date, nav } sorted oldest→newest
+ */
+const historyCache = {};
+const HISTORY_CACHE_TTL = 4 * 60 * 60 * 1000; // 4 hours
+
+export async function getNavHistory(schemeCode) {
+    if (historyCache[schemeCode] && Date.now() - historyCache[schemeCode].fetchedAt < HISTORY_CACHE_TTL) {
+        return historyCache[schemeCode].data;
+    }
+
+    const res = await fetch(`${BASE_URL}/${schemeCode}`);
+    if (!res.ok) throw new Error(`MFAPI history error for ${schemeCode}: ${res.status}`);
+    const json = await res.json();
+
+    const data = (json.data || [])
+        .map(d => ({ date: d.date, nav: parseFloat(d.nav) || 0 }))
+        .filter(d => d.nav > 0)
+        .reverse(); // oldest first
+
+    historyCache[schemeCode] = { data, fetchedAt: Date.now() };
+    return data;
+}
+
 // ── Scheme code mapping for WealthWise fund table ──────────────────────────
 // Source: https://api.mfapi.in/mf (AMFI scheme codes)
 export const SCHEME_CODES = {
