@@ -33,3 +33,18 @@ project/.env.*.local
 Thumbs.db
 *.swp
 *.swo
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Eclipse IDE files
+# ─────────────────────────────────────────────────────────────────────────────
+backend/.classpath
+backend/.project
+backend/.settings/
+backend/.apt_generated/
+backend/.apt_generated_tests/
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Build logs & one-off scripts
+# ─────────────────────────────────────────────────────────────────────────────
+backend/build_log.txt
+backend/dl-maven.js
