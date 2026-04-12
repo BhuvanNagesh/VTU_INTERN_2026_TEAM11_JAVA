@@ -5,7 +5,7 @@ target/
 *.war
 
 # Secrets — never commit these
-src/main/resources/application.properties
+
 
 # APT generated
 /.apt_generated/
