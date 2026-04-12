@@ -5,7 +5,7 @@ import { ResponsiveContainer, Radar, RadarChart, PolarGrid, PolarAngleAxis } fro
 import { useAuth } from '../context/AuthContext';
 import './AnalyticsPage.css';
 
-const API = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+const API = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
 
 const formatCurrency = (val) => {
   if (val === undefined || val === null) return '₹0.00';
