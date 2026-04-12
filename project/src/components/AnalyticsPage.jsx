@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Activity, ShieldAlert, Network, RefreshCw, AlertTriangle, Zap, Target, BookOpen, BarChart2, CheckCircle2, ChevronRight } from 'lucide-react';
+import { Activity, ShieldAlert, Network, RefreshCw, AlertTriangle, Zap, Target, BookOpen, BarChart2, CheckCircle2 } from 'lucide-react';
 import { ResponsiveContainer, Radar, RadarChart, PolarGrid, PolarAngleAxis } from 'recharts';
 import { useAuth } from '../context/AuthContext';
 import './AnalyticsPage.css';
@@ -12,117 +12,6 @@ const formatCurrency = (val) => {
   return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(val);
 };
 
-// ─── Risk Survey ──────────────────────────────────────────────────────────────
-const SURVEY_QUESTIONS = [
-  {
-    id: 'q1',
-    question: 'If your portfolio dropped 30% in a market crash, what would you do?',
-    options: [
-      { label: 'Sell everything to stop further losses', value: 'CONSERVATIVE' },
-      { label: 'Do nothing and wait for recovery', value: 'MODERATE' },
-      { label: 'Buy more — great opportunity!', value: 'AGGRESSIVE' },
-    ],
-  },
-  {
-    id: 'q2',
-    question: 'What is your primary investment goal?',
-    options: [
-      { label: 'Protect my money (capital preservation)', value: 'CONSERVATIVE' },
-      { label: 'Grow steadily with moderate risk', value: 'MODERATE' },
-      { label: 'Maximise long-term wealth, I can handle volatility', value: 'AGGRESSIVE' },
-    ],
-  },
-  {
-    id: 'q3',
-    question: "What is your investment time horizon?",
-    options: [
-      { label: 'Less than 3 years (short-term)', value: 'CONSERVATIVE' },
-      { label: '3 to 7 years (medium-term)', value: 'MODERATE' },
-      { label: 'More than 7 years (long-term)', value: 'AGGRESSIVE' },
-    ],
-  },
-];
-
-function RiskSurveyModal({ onComplete, onClose, token }) {
-  const [step, setStep] = useState(0);
-  const [answers, setAnswers] = useState([]);
-  const [saving, setSaving] = useState(false);
-
-  const handleAnswer = (value) => {
-    const newAnswers = [...answers, value];
-    setAnswers(newAnswers);
-    if (step < SURVEY_QUESTIONS.length - 1) {
-      setStep(s => s + 1);
-    } else {
-      // Determine final profile
-      const counts = { CONSERVATIVE: 0, MODERATE: 0, AGGRESSIVE: 0 };
-      newAnswers.forEach(a => { if (counts[a] !== undefined) counts[a]++; });
-      const profile = Object.entries(counts).sort((a, b) => b[1] - a[1])[0][0];
-      submitProfile(profile);
-    }
-  };
-
-  const submitProfile = async (profile) => {
-    setSaving(true);
-    try {
-      await fetch(`${API}/api/analytics/risk-profile`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ riskProfile: profile }),
-      });
-      onComplete(profile);
-    } catch (e) {
-      onComplete(profile); // Still show result even on error
-    }
-  };
-
-  const q = SURVEY_QUESTIONS[step];
-  const progress = ((step) / SURVEY_QUESTIONS.length) * 100;
-
-  return (
-    <motion.div className="modal-overlay" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-      onClick={onClose}>
-      <motion.div className="survey-modal glassmorphism" initial={{ scale: 0.92, y: 30 }} animate={{ scale: 1, y: 0 }}
-        exit={{ scale: 0.92, y: 30 }} onClick={e => e.stopPropagation()}>
-
-        {saving ? (
-          <div style={{ textAlign: 'center', padding: '40px' }}>
-            <RefreshCw size={40} color="#8C52FF" style={{ animation: 'spin 1s linear infinite', margin: '0 auto 16px' }} />
-            <p style={{ color: '#E0E0FF' }}>Saving your risk profile...</p>
-          </div>
-        ) : (
-          <>
-            <div style={{ marginBottom: '24px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-                <span style={{ fontSize: '12px', color: '#A0A0B0' }}>Question {step + 1} of {SURVEY_QUESTIONS.length}</span>
-                <span style={{ fontSize: '12px', color: '#8C52FF' }}>{Math.round(progress)}% done</span>
-              </div>
-              <div style={{ height: '4px', background: 'rgba(255,255,255,0.1)', borderRadius: '2px' }}>
-                <motion.div style={{ height: '100%', background: 'linear-gradient(90deg, #8C52FF, #00F298)', borderRadius: '2px' }}
-                  animate={{ width: `${progress}%` }} transition={{ duration: 0.3 }} />
-              </div>
-            </div>
-
-            <h3 style={{ fontSize: '20px', fontWeight: 700, marginBottom: '28px', color: '#fff', lineHeight: 1.4 }}>
-              {q.question}
-            </h3>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              {q.options.map((opt, i) => (
-                <motion.button key={i} className="survey-option" onClick={() => handleAnswer(opt.value)}
-                  whileHover={{ x: 4 }} whileTap={{ scale: 0.98 }}>
-                  <ChevronRight size={16} style={{ opacity: 0.5, flexShrink: 0 }} />
-                  {opt.label}
-                </motion.button>
-              ))}
-            </div>
-          </>
-        )}
-      </motion.div>
-    </motion.div>
-  );
-}
-
 // ─── Main Analytics Page ──────────────────────────────────────────────────────
 export default function AnalyticsPage() {
   const { getToken } = useAuth();
@@ -130,7 +19,6 @@ export default function AnalyticsPage() {
   const [data, setData] = useState({ risk: null, sip: null, overlap: null });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [showSurvey, setShowSurvey] = useState(false);
 
   const fetchAnalytics = useCallback(async () => {
     setLoading(true);
@@ -154,19 +42,14 @@ export default function AnalyticsPage() {
 
   useEffect(() => { fetchAnalytics(); }, [fetchAnalytics]);
 
-  const handleSurveyComplete = (profile) => {
-    setShowSurvey(false);
-    fetchAnalytics(); // refresh with new profile
-  };
-
   // ─── Risk Tab ───────────────────────────────────────────────────────────────
   const renderRiskTab = () => {
     if (!data.risk) return null;
     const { portfolioRiskScore, portfolioRiskLabel, diversificationScore, volatilityPct, sharpeRatio,
-            maxDrawdownPct, totalFunds, uniqueAmcs, userRiskProfile, riskComparison } = data.risk;
+            maxDrawdownPct, totalFunds, uniqueAmcs, riskAppetite, riskAppetiteDescription } = data.risk;
 
-    const profileColors = { CONSERVATIVE: '#00D09C', MODERATE: '#FFB247', AGGRESSIVE: '#FF4D4D' };
-    const profileColor = profileColors[userRiskProfile] || '#8C52FF';
+    const appetiteColors = { Conservative: '#00D09C', Moderate: '#FFB247', Aggressive: '#FF4D4D' };
+    const appetiteColor = appetiteColors[riskAppetite] || '#8C52FF';
 
     let riskBadgeClass = 'risk-Moderate';
     if (portfolioRiskLabel?.includes('Low')) riskBadgeClass = 'risk-Low';
@@ -181,13 +64,6 @@ export default function AnalyticsPage() {
 
     return (
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
-        {/* Risk Comparison Banner */}
-        {riskComparison && (
-          <div style={{ padding: '14px 18px', background: 'rgba(140,82,255,0.1)', border: '1px solid rgba(140,82,255,0.25)',
-            borderRadius: '12px', marginBottom: '20px', fontSize: '14px', color: '#E0E0FF', lineHeight: 1.5 }}>
-            {riskComparison}
-          </div>
-        )}
 
         <div className="intel-grid">
           {/* Portfolio Risk Card */}
@@ -202,22 +78,15 @@ export default function AnalyticsPage() {
             </p>
           </div>
 
-          {/* User's Risk Tolerance */}
+          {/* User's Risk Appetite */}
           <div className="intel-card glassmorphism">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-              <h3 className="card-title" style={{ marginBottom: 0 }}><Target size={16} color={profileColor} /> Your Risk Appetite</h3>
-              <motion.button onClick={() => setShowSurvey(true)} whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
-                style={{ fontSize: '11px', padding: '4px 10px', borderRadius: '6px', border: `1px solid ${profileColor}40`,
-                  background: `${profileColor}15`, color: profileColor, cursor: 'pointer', fontWeight: 600 }}>
-                Retake Survey
-              </motion.button>
+            <div style={{ marginBottom: '16px' }}>
+              <h3 className="card-title" style={{ marginBottom: 0 }}><Target size={16} color={appetiteColor} /> Your Risk Appetite</h3>
             </div>
             <div className="risk-score-display">
-              <span className="risk-number" style={{ fontSize: '36px', color: profileColor }}>{userRiskProfile}</span>
+              <span className="risk-number" style={{ fontSize: '36px', color: appetiteColor }}>{riskAppetite}</span>
               <p style={{ fontSize: '12px', color: '#A0A0B0', marginTop: '8px', textAlign: 'center' }}>
-                {userRiskProfile === 'CONSERVATIVE' && 'You prefer capital safety over high returns.'}
-                {userRiskProfile === 'MODERATE' && 'You balance growth with measured risk.'}
-                {userRiskProfile === 'AGGRESSIVE' && 'You seek maximum long-term growth.'}
+                {riskAppetiteDescription}
               </p>
             </div>
           </div>
@@ -425,16 +294,6 @@ export default function AnalyticsPage() {
         )}
       </div>
 
-      {/* Survey Modal */}
-      <AnimatePresence>
-        {showSurvey && (
-          <RiskSurveyModal
-            onComplete={handleSurveyComplete}
-            onClose={() => setShowSurvey(false)}
-            token={getToken()}
-          />
-        )}
-      </AnimatePresence>
     </div>
   );
 }

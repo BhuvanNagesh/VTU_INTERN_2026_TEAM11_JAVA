@@ -47,24 +47,19 @@ public class AnalyticsService {
 
     public Map<String, Object> getRiskProfile(Long userId) {
         List<InvestmentLot> lots = investmentLotRepository.findByUserIdOrderByPurchaseDateAsc(userId);
-        User user = userRepository.findById(userId).orElse(null);
-        String userRiskProfile = (user != null && user.getRiskProfile() != null)
-            ? user.getRiskProfile()
-            : "MODERATE";
-        double userToleranceScore = mapUserProfileToTolerance(userRiskProfile);
 
         if (lots.isEmpty()) {
             Map<String, Object> empty = new HashMap<>();
             empty.put("portfolioRiskScore", 0.0);
             empty.put("portfolioRiskLabel", "N/A");
+            empty.put("riskAppetite", "N/A");
+            empty.put("riskAppetiteDescription", "No portfolio data available.");
             empty.put("diversificationScore", 0.0);
             empty.put("volatilityPct", 0.0);
             empty.put("sharpeRatio", 0.0);
             empty.put("maxDrawdownPct", 0.0);
             empty.put("totalFunds", 0);
             empty.put("uniqueAmcs", 0);
-            empty.put("userRiskProfile", userRiskProfile);
-            empty.put("riskComparison", "No active investments found for this user yet.");
             return empty;
         }
 
@@ -112,14 +107,14 @@ public class AnalyticsService {
         Map<String, Object> riskData = new HashMap<>();
         riskData.put("portfolioRiskScore", portfolioRiskScore);
         riskData.put("portfolioRiskLabel", getRiskLabel(portfolioRiskScore));
+        riskData.put("riskAppetite", getRiskAppetite(portfolioRiskScore));
+        riskData.put("riskAppetiteDescription", getRiskAppetiteDescription(portfolioRiskScore));
         riskData.put("diversificationScore", diversificationScore);
         riskData.put("volatilityPct", volatilityPct);
         riskData.put("sharpeRatio", sharpeRatio);
         riskData.put("maxDrawdownPct", maxDrawdownPct);
         riskData.put("totalFunds", distinctFunds.size());
         riskData.put("uniqueAmcs", uniqueAmcs.size());
-        riskData.put("userRiskProfile", userRiskProfile);
-        riskData.put("riskComparison", buildRiskComparison(portfolioRiskScore, userToleranceScore));
 
         return riskData;
     }
@@ -289,26 +284,40 @@ public class AnalyticsService {
         return score;
     }
 
-    private double mapUserProfileToTolerance(String profile) {
-        return switch (profile) {
-            case "CONSERVATIVE" -> 2.0;
-            case "AGGRESSIVE" -> 5.5;
-            default -> 3.5;
-        };
+    /**
+     * Derives the investor risk appetite category from the SEBI 6-point portfolio risk score.
+     * Score range  → Appetite
+     *   0.0        → N/A  (no data)
+     *   0.1 – 2.0  → Conservative
+     *   2.1 – 4.0  → Moderate
+     *   4.1 – 6.0  → Aggressive
+     */
+    private String getRiskAppetite(double score) {
+        if (score == 0.0) {
+            return "N/A";
+        }
+        if (score <= 2.0) {
+            return "Conservative";
+        }
+        if (score <= 4.0) {
+            return "Moderate";
+        }
+        return "Aggressive";
     }
 
-    private String buildRiskComparison(double portfolioRiskScore, double userToleranceScore) {
-        if (portfolioRiskScore == 0.0) {
-            return "We need more portfolio data before we can compare your risk tolerance.";
+    private String getRiskAppetiteDescription(double score) {
+        if (score == 0.0) {
+            return "No portfolio data available.";
         }
-        if (portfolioRiskScore > userToleranceScore) {
-            return "Your portfolio is more risky than your stated comfort level.";
+        if (score <= 2.0) {
+            return "You prefer capital preservation with minimal risk exposure.";
         }
-        if (portfolioRiskScore < userToleranceScore - 1.0) {
-            return "Your portfolio is below your stated risk tolerance and may be overly conservative.";
+        if (score <= 4.0) {
+            return "You balance growth with measured risk.";
         }
-        return "Your portfolio risk is broadly aligned with your stated comfort level.";
+        return "You seek high returns and are comfortable with significant risk.";
     }
+
 
     private String getRiskLabel(double score) {
         if (score == 0.0) {
