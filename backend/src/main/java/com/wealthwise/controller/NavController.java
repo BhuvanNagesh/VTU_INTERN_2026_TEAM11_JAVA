@@ -15,7 +15,6 @@ import java.util.Map;
  */
 @RestController
 @RequestMapping("/api/nav")
-@CrossOrigin(origins = "*")
 public class NavController {
 
     @Autowired

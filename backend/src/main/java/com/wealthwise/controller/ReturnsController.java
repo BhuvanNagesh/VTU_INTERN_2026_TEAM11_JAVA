@@ -11,7 +11,6 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/returns")
-@CrossOrigin(origins = "*")
 public class ReturnsController {
 
     @Autowired private ReturnsService returnsService;

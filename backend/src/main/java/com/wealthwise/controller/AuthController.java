@@ -12,7 +12,6 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/auth")
-@CrossOrigin(origins = "*") // Update with the exact Vite URL (e.g., http://localhost:5173) in production
 public class AuthController {
 
     @Autowired

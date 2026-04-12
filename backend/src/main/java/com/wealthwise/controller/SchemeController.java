@@ -12,7 +12,6 @@ import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/schemes")
-@CrossOrigin(origins = "*")
 public class SchemeController {
 
     @Autowired
