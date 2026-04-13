@@ -1,244 +1,136 @@
--- ==========================================
--- 1. USERS TABLE (Existing Structure preserved for M01 Compatibility)
--- ==========================================
-CREATE TABLE public.users (
-  id bigserial not null,
-  created_at timestamp with time zone null,
-  currency character varying(255) null,
-  email character varying(255) not null,
-  full_name character varying(255) not null,
-  pan_card character varying(255) null,
-  password character varying(255) not null,
-  phone character varying(255) null,
-  otp_expiry timestamp with time zone null,
-  reset_otp character varying(255) null,
-  constraint users_pkey primary key (id),
-  constraint uk_6dotkott2kjsp8vw4d0m25fb7 unique (email)
-) TABLESPACE pg_default;
+-- WARNING: This schema is for context only and is not meant to be run.
+-- Table order and constraints may not be valid for execution.
 
--- ==========================================
--- 2. SCHEMES MASTER TABLE (M02)
--- ==========================================
-CREATE TABLE public.scheme_master (
-    id bigserial not null,
-    amfi_code character varying(20) not null,
-    isin_growth character varying(20),
-    isin_idcw character varying(20),
-    scheme_name character varying(500) not null,
-    amc_name character varying(200),
-    fund_family character varying(200),
-    plan_type character varying(20),
-    option_type character varying(30),
-    fund_type character varying(30),
-    sebi_category character varying(100),
-    broad_category character varying(20),
-    risk_level integer,
-    last_nav numeric(18, 4),
-    last_nav_date date,
-    is_active boolean default true,
-    created_at timestamp with time zone default CURRENT_TIMESTAMP,
-    
-    constraint scheme_master_pkey primary key (id),
-    constraint scheme_master_amfi_code_key unique (amfi_code)
-) TABLESPACE pg_default;
-
-CREATE INDEX idx_scheme_amfi_code ON public.scheme_master (amfi_code);
-CREATE INDEX idx_scheme_name ON public.scheme_master (scheme_name);
-CREATE INDEX idx_scheme_amc ON public.scheme_master (amc_name);
-CREATE INDEX idx_scheme_category ON public.scheme_master (broad_category);
-
--- ==========================================
--- 3. TRANSACTIONS LEDGER TABLE (M06)
--- ==========================================
-CREATE TABLE public.transactions (
-    id bigserial not null,
-    transaction_ref character varying(50) not null,
-    user_id bigint not null,
-    folio_number character varying(50),
-    scheme_amfi_code character varying(20) not null,
-    scheme_name character varying(500),
-    transaction_type character varying(30) not null,
-    transaction_date date not null,
-    amount numeric(18, 4),
-    units numeric(18, 6),
-    nav numeric(18, 4),
-    stamp_duty numeric(18, 4),
-    source character varying(30) default 'MANUAL',
-    notes character varying(500),
-    reversal_of bigint,
-    switch_pair_id character varying(50),
-    created_at timestamp with time zone default CURRENT_TIMESTAMP,
-    
-    constraint transactions_pkey primary key (id),
-    constraint transactions_transaction_ref_key unique (transaction_ref)
-) TABLESPACE pg_default;
-
-CREATE INDEX idx_txn_user ON public.transactions (user_id);
-CREATE INDEX idx_txn_user_scheme ON public.transactions (user_id, scheme_amfi_code);
-CREATE INDEX idx_txn_folio ON public.transactions (user_id, folio_number);
-CREATE INDEX idx_txn_date ON public.transactions (transaction_date);
-
--- ==========================================
--- 4. INVESTMENT LOTS TABLE (FIFO tracking)
--- ==========================================
+CREATE TABLE public.cas_upload_log (
+  id bigint NOT NULL DEFAULT nextval('cas_upload_log_id_seq'::regclass),
+  user_id bigint NOT NULL,
+  file_name character varying,
+  status character varying,
+  total_folios integer,
+  total_transactions integer,
+  error_message character varying,
+  created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT cas_upload_log_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.fund_holdings (
+  id bigint NOT NULL DEFAULT nextval('fund_holdings_id_seq'::regclass),
+  scheme_amfi_code character varying NOT NULL,
+  stock_isin character varying,
+  stock_name character varying NOT NULL,
+  sector character varying,
+  weight_pct double precision,
+  as_of_date date,
+  created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT fund_holdings_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.goal_fund_links (
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  goal_id uuid NOT NULL,
+  investment_lot_id bigint NOT NULL,
+  allocation_pct numeric NOT NULL CHECK (allocation_pct > 0::numeric AND allocation_pct <= 100::numeric),
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT goal_fund_links_pkey PRIMARY KEY (id),
+  CONSTRAINT goal_fund_links_goal_id_fkey FOREIGN KEY (goal_id) REFERENCES public.goals(id),
+  CONSTRAINT goal_fund_links_investment_lot_id_fkey FOREIGN KEY (investment_lot_id) REFERENCES public.investment_lots(id)
+);
+CREATE TABLE public.goals (
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  user_id bigint NOT NULL,
+  goal_name character varying NOT NULL,
+  goal_type USER-DEFINED NOT NULL,
+  goal_icon character varying NOT NULL DEFAULT '💰'::character varying,
+  target_amount_today numeric NOT NULL CHECK (target_amount_today > 0::numeric),
+  inflation_rate numeric NOT NULL DEFAULT 0.0600,
+  target_amount_future numeric NOT NULL CHECK (target_amount_future > 0::numeric),
+  target_date date NOT NULL,
+  years_remaining numeric,
+  priority USER-DEFINED NOT NULL DEFAULT 'MEDIUM'::goal_priority_enum,
+  monthly_sip_allocated numeric NOT NULL DEFAULT 0,
+  expected_return_rate numeric NOT NULL DEFAULT 0.1200,
+  status USER-DEFINED NOT NULL DEFAULT 'ACTIVE'::goal_status_enum,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT goals_pkey PRIMARY KEY (id),
+  CONSTRAINT goals_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id)
+);
 CREATE TABLE public.investment_lots (
-    id bigserial not null,
-    transaction_id bigint not null,
-    user_id bigint not null,
-    scheme_amfi_code character varying(20) not null,
-    scheme_name character varying(500),
-    folio_number character varying(50),
-    purchase_date date not null,
-    purchase_nav numeric(18, 4),
-    purchase_amount numeric(18, 4),
-    units_original numeric(18, 6) not null,
-    units_remaining numeric(18, 6) not null,
-    is_elss boolean default false,
-    elss_lock_until date,
-    created_at timestamp with time zone default CURRENT_TIMESTAMP,
-    
-    constraint investment_lots_pkey primary key (id)
-) TABLESPACE pg_default;
-
-CREATE INDEX idx_lot_user ON public.investment_lots (user_id);
-CREATE INDEX idx_lot_user_scheme ON public.investment_lots (user_id, scheme_amfi_code);
-CREATE INDEX idx_lot_folio ON public.investment_lots (user_id, folio_number);
-CREATE INDEX idx_lot_date ON public.investment_lots (purchase_date);
-
-
--- ==================================================================================
--- WealthWise Schema Migration Script
--- Run this in Supabase SQL Editor AFTER your existing schema
--- All statements use IF NOT EXISTS / safe patterns — ZERO data loss
--- ==================================================================================
-
--- ──────────────────────────────────────────────────────────────────────────────────
--- TABLE 1: users
--- What's new: risk_profile column (added by Hibernate on startup already)
--- Running this is safe even if it already exists via Hibernate
--- ──────────────────────────────────────────────────────────────────────────────────
-ALTER TABLE public.users
-  ADD COLUMN IF NOT EXISTS risk_profile VARCHAR(50) DEFAULT 'MODERATE';
-
-
--- ──────────────────────────────────────────────────────────────────────────────────
--- TABLE 2: scheme_master
--- OLD schema matches JPA entity exactly.
--- No structural changes needed.
--- Only add index IF NOT EXISTS (Supabase might warn if re-run, but won't crash)
--- ──────────────────────────────────────────────────────────────────────────────────
-CREATE INDEX IF NOT EXISTS idx_scheme_amfi_code ON public.scheme_master (amfi_code);
-CREATE INDEX IF NOT EXISTS idx_scheme_name      ON public.scheme_master (scheme_name);
-CREATE INDEX IF NOT EXISTS idx_scheme_amc       ON public.scheme_master (amc_name);
-CREATE INDEX IF NOT EXISTS idx_scheme_category  ON public.scheme_master (broad_category);
-
-
--- ──────────────────────────────────────────────────────────────────────────────────
--- TABLE 3: transactions
--- OLD schema already has all columns matching the JPA entity.
--- No new columns needed.
--- Ensure indexes exist safely:
--- ──────────────────────────────────────────────────────────────────────────────────
-CREATE INDEX IF NOT EXISTS idx_txn_user        ON public.transactions (user_id);
-CREATE INDEX IF NOT EXISTS idx_txn_user_scheme ON public.transactions (user_id, scheme_amfi_code);
-CREATE INDEX IF NOT EXISTS idx_txn_folio       ON public.transactions (user_id, folio_number);
-CREATE INDEX IF NOT EXISTS idx_txn_date        ON public.transactions (transaction_date);
-
-
--- ──────────────────────────────────────────────────────────────────────────────────
--- TABLE 4: investment_lots
--- OLD schema already has all columns matching the JPA entity.
--- No new columns needed.
--- Ensure indexes exist safely:
--- ──────────────────────────────────────────────────────────────────────────────────
-CREATE INDEX IF NOT EXISTS idx_lot_user        ON public.investment_lots (user_id);
-CREATE INDEX IF NOT EXISTS idx_lot_user_scheme ON public.investment_lots (user_id, scheme_amfi_code);
-CREATE INDEX IF NOT EXISTS idx_lot_folio       ON public.investment_lots (user_id, folio_number);
-CREATE INDEX IF NOT EXISTS idx_lot_date        ON public.investment_lots (purchase_date);
-
-
--- ──────────────────────────────────────────────────────────────────────────────────
--- VERIFICATION: Run these SELECT queries after migration to confirm structure
--- ──────────────────────────────────────────────────────────────────────────────────
--- SELECT column_name, data_type FROM information_schema.columns WHERE table_name = 'users' ORDER BY ordinal_position;
--- SELECT column_name, data_type FROM information_schema.columns WHERE table_name = 'scheme_master' ORDER BY ordinal_position;
--- SELECT column_name, data_type FROM information_schema.columns WHERE table_name = 'transactions' ORDER BY ordinal_position;
--- SELECT column_name, data_type FROM information_schema.columns WHERE table_name = 'investment_lots' ORDER BY ordinal_position;
-
-
-
--- ==================================================================================
--- CAS Parser Database Migration
--- Run this in Supabase SQL Editor
--- ==================================================================================
-
--- ──────────────────────────────────────────────────────────────────────────────────
--- TABLE: cas_upload_log (NEW)
--- Used for tracking the parsing success/failures of CAS PDF files
--- ──────────────────────────────────────────────────────────────────────────────────
-CREATE TABLE IF NOT EXISTS public.cas_upload_log (
-    id bigserial not null,
-    user_id bigint not null,
-    file_name character varying(255),
-    status character varying(20),
-    total_folios integer,
-    total_transactions integer,
-    error_message character varying(1000),
-    created_at timestamp with time zone default CURRENT_TIMESTAMP,
-    
-    constraint cas_upload_log_pkey primary key (id)
-) TABLESPACE pg_default;
-
-
--- ──────────────────────────────────────────────────────────────────────────────────
--- TABLE: transactions (ALTER)
--- Add the new category and risk fields for the frontend visualizations
--- ──────────────────────────────────────────────────────────────────────────────────
-ALTER TABLE public.transactions
-  ADD COLUMN IF NOT EXISTS category character varying(100),
-  ADD COLUMN IF NOT EXISTS risk integer;
-
-
--- ──────────────────────────────────────────────────────────────────────────────────
--- BACKFILL DATA
--- Match existing manual transactions with scheme_master and fetch their category/risk
--- ──────────────────────────────────────────────────────────────────────────────────
-UPDATE public.transactions t
-SET 
-  category = COALESCE(sm.broad_category, sm.sebi_category),
-  risk = sm.risk_level
-FROM public.scheme_master sm
-WHERE t.scheme_amfi_code = sm.amfi_code
-  AND (t.category IS NULL OR t.risk IS NULL);
-
-
--- ══════════════════════════════════════════════════════════════════════════════
--- FUND OVERLAP ANALYTICS — Stock-Level Holdings Table (M11 Integration)
--- Run AFTER existing schema. Hibernate will auto-create on startup,
--- but this SQL is provided for manual Supabase migration / documentation.
--- ══════════════════════════════════════════════════════════════════════════════
-CREATE TABLE IF NOT EXISTS public.fund_holdings (
-    id bigserial NOT NULL,
-    scheme_amfi_code character varying(20) NOT NULL,
-    stock_isin character varying(20),
-    stock_name character varying(300) NOT NULL,
-    sector character varying(100),
-    weight_pct double precision,
-    as_of_date date,
-    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
-
-    CONSTRAINT fund_holdings_pkey PRIMARY KEY (id)
-) TABLESPACE pg_default;
-
--- Index for fast lookup by scheme code (the primary query pattern)
-CREATE INDEX IF NOT EXISTS idx_fh_scheme ON public.fund_holdings (scheme_amfi_code);
-
--- Index for cross-portfolio stock name queries
-CREATE INDEX IF NOT EXISTS idx_fh_stock ON public.fund_holdings (stock_name);
-
--- ──────────────────────────────────────────────────────────────────────────────
--- NOTE: fund_holdings is populated ON DEMAND by FundHoldingsIngestionService
--- when a user views the Analytics → Overlap tab for the first time.
--- Data is derived from SEBI-mandated category allocation rules using real
--- NSE/BSE Nifty index constituents (not dummy data).
--- ──────────────────────────────────────────────────────────────────────────────
+  id bigint NOT NULL DEFAULT nextval('investment_lots_id_seq'::regclass),
+  transaction_id bigint NOT NULL,
+  user_id bigint NOT NULL,
+  scheme_amfi_code character varying NOT NULL,
+  scheme_name character varying,
+  folio_number character varying,
+  purchase_date date NOT NULL,
+  purchase_nav numeric,
+  purchase_amount numeric,
+  units_original numeric NOT NULL,
+  units_remaining numeric NOT NULL,
+  is_elss boolean DEFAULT false,
+  elss_lock_until date,
+  created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT investment_lots_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.nav_history (
+  id bigint NOT NULL DEFAULT nextval('nav_history_id_seq'::regclass),
+  amfi_code character varying NOT NULL,
+  nav_date date NOT NULL,
+  nav_value numeric NOT NULL,
+  CONSTRAINT nav_history_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.scheme_master (
+  id bigint NOT NULL DEFAULT nextval('scheme_master_id_seq'::regclass),
+  amfi_code character varying NOT NULL UNIQUE,
+  isin_growth character varying,
+  isin_idcw character varying,
+  scheme_name character varying NOT NULL,
+  amc_name character varying,
+  fund_family character varying,
+  plan_type character varying,
+  option_type character varying,
+  fund_type character varying,
+  sebi_category character varying,
+  broad_category character varying,
+  risk_level integer,
+  last_nav numeric,
+  last_nav_date date,
+  is_active boolean DEFAULT true,
+  created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT scheme_master_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.transactions (
+  id bigint NOT NULL DEFAULT nextval('transactions_id_seq'::regclass),
+  transaction_ref character varying NOT NULL UNIQUE,
+  user_id bigint NOT NULL,
+  folio_number character varying,
+  scheme_amfi_code character varying NOT NULL,
+  scheme_name character varying,
+  transaction_type character varying NOT NULL,
+  transaction_date date NOT NULL,
+  amount numeric,
+  units numeric,
+  nav numeric,
+  stamp_duty numeric,
+  source character varying DEFAULT 'MANUAL'::character varying,
+  notes character varying,
+  reversal_of bigint,
+  switch_pair_id character varying,
+  created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
+  category character varying,
+  risk integer,
+  CONSTRAINT transactions_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.users (
+  id bigint NOT NULL DEFAULT nextval('users_id_seq'::regclass),
+  created_at timestamp with time zone,
+  currency character varying,
+  email character varying NOT NULL UNIQUE,
+  full_name character varying NOT NULL,
+  pan_card character varying,
+  password character varying NOT NULL,
+  phone character varying,
+  otp_expiry timestamp with time zone,
+  reset_otp character varying,
+  risk_profile character varying DEFAULT 'MODERATE'::character varying,
+  CONSTRAINT users_pkey PRIMARY KEY (id)
+);
