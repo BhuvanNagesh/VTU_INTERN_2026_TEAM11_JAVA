@@ -50,10 +50,12 @@ public class AuthService {
         // Cryptographically secure OTP using SecureRandom (not java.util.Random)
         String otp = String.format("%06d", new SecureRandom().nextInt(1_000_000));
 
-        user.setResetOtp(otp);
+        // Hash before storing — if DB is compromised, attacker cannot use stored value to reset passwords
+        user.setResetOtp(passwordEncoder.encode(otp));
         user.setOtpExpiry(LocalDateTime.now().plusMinutes(5));
         userRepository.save(user);
 
+        // Send the plaintext OTP to user's email (only valid copy outside the DB)
         emailService.sendOtpEmail(email, otp);
         return otp;
     }
@@ -62,7 +64,7 @@ public class AuthService {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
-        if (user.getResetOtp() == null || !user.getResetOtp().equals(otp)) {
+        if (user.getResetOtp() == null || !passwordEncoder.matches(otp, user.getResetOtp())) {
             throw new RuntimeException("Invalid or missing OTP");
         }
 

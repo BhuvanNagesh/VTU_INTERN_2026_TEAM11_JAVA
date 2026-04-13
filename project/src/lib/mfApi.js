@@ -130,7 +130,7 @@ export const SCHEME_CODES = {
 
     // ── Debt ─────────────────────────────────────────────────────────────────
     'HDFC Short Term Debt':      '119270', // HDFC Short Term Debt Fund
-    'Nippon India Liquid':       '118825', // Nippon India Liquid Fund - Growth ← using Small Cap as approx; ideally use specific liquid code
+    'Nippon India Liquid':       '101305', // Nippon India Liquid Fund - Growth (Direct Plan)
     'ICICI Pru Corporate Bond':  '120648', // ICICI Pru Corporate Bond Fund
     'Aditya Birla SL Corp Bond': '119436', // Aditya Birla SL Corporate Bond Fund
     'Kotak Bond Short Term':     '120483', // Kotak Bond Short Term Fund

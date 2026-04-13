@@ -16,6 +16,7 @@ import DashboardPage from './components/DashboardPage';
 import TransactionsPage from './components/TransactionsPage';
 import ProfilePage from './components/ProfilePage';
 import AnalyticsPage from './components/AnalyticsPage';
+import GoalsPage from './components/GoalsPage';
 import ErrorBoundary from './components/ErrorBoundary';
 import WarmupOverlay from './components/WarmupOverlay';
 import './App.css';
@@ -109,6 +110,7 @@ function AppContent() {
           <Route path="/dashboard" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
           <Route path="/transactions" element={<ProtectedRoute><TransactionsPage /></ProtectedRoute>} />
           <Route path="/analytics" element={<ProtectedRoute><AnalyticsPage /></ProtectedRoute>} />
+          <Route path="/goals" element={<ProtectedRoute><GoalsPage /></ProtectedRoute>} />
           <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
 
           {/* Catch-all */}

@@ -4,7 +4,7 @@ import { Plus, Search, ArrowUpRight, ArrowDownLeft, RefreshCw, ChevronDown, X, C
 import { useAuth } from '../context/AuthContext';
 import './TransactionsPage.css';
 
-const API = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
+import { API_BASE as API } from '../lib/config';
 
 const TXN_TYPES = [
   { value: 'PURCHASE_LUMPSUM', label: 'Lumpsum Purchase', icon: '⬆️', color: '#00D09C' },
@@ -122,7 +122,7 @@ function SchemeAutocomplete({ value, onChange }) {
 }
 
 // Add Transaction Modal
-function AddTransactionModal({ onClose, onSuccess, token }) {
+function AddTransactionModal({ onClose, onSuccess, token, transactions }) {
   const [mode, setMode] = useState('single'); // 'single' or 'bulk-sip'
   const [form, setForm] = useState({
     scheme: null,
@@ -143,39 +143,98 @@ function AddTransactionModal({ onClose, onSuccess, token }) {
   const [navHint, setNavHint] = useState('');
   const [casualFile, setCasualFile] = useState(null);
 
+  // Auto-fill folio from history when scheme changes
+  // Also collect all distinct real folios for this scheme to show as chips
+  const [existingFolios, setExistingFolios] = useState([]);
+
+  useEffect(() => {
+    if (!form.scheme?.amfiCode || !transactions?.length) {
+      setExistingFolios([]);
+      return;
+    }
+    const amfiCode = form.scheme.amfiCode;
+    // Collect all distinct, non-synthetic folios for this scheme
+    const folioSet = new Set();
+    transactions
+      .filter(t => t.schemeAmfiCode === amfiCode && t.folioNumber && !t.folioNumber.startsWith('WW'))
+      .forEach(t => folioSet.add(t.folioNumber));
+    const folios = [...folioSet];
+    setExistingFolios(folios);
+
+    // Auto-fill with the most recent real folio
+    const sorted = [...transactions]
+      .filter(t => t.schemeAmfiCode === amfiCode && t.folioNumber && !t.folioNumber.startsWith('WW'))
+      .sort((a, b) => new Date(b.transactionDate) - new Date(a.transactionDate));
+    if (sorted.length > 0) {
+      setForm(f => ({ ...f, folioNumber: sorted[0].folioNumber }));
+    } else {
+      // No real folio — clear so user knows none found
+      setForm(f => ({ ...f, folioNumber: '' }));
+    }
+  }, [form.scheme, transactions]);
+
   // Auto-fetch NAV when scheme OR date changes (only in single entry mode)
+  const [navLoading, setNavLoading] = useState(false);
+
+  // Auto-fetch NAV directly from mfapi.in when scheme OR date changes
   useEffect(() => {
     if (mode === 'bulk-sip' || mode === 'upload-cas') return;
-    if (!form.scheme || !form.transactionDate) return;
+    if (!form.scheme?.amfiCode || !form.transactionDate) return;
+
+    let cancelled = false; // prevent stale setState if scheme changes quickly
+
     const fetchNav = async () => {
+      setNavLoading(true);
+      setNavHint('');
       try {
-        // First: try date-specific NAV (historical from mfapi.in, Caffeine-cached)
-        const res = await fetch(
-          `${API}/api/nav/${form.scheme.amfiCode}/date/${form.transactionDate}`
-        );
-        const data = await res.json();
-        if (data.nav && data.nav !== null) {
-          setForm(f => ({ ...f, nav: data.nav.toString() }));
-          setNavHint(`NAV on ${form.transactionDate}: ₹${parseFloat(data.nav).toFixed(4)}`);
+        // Direct mfapi.in call — no backend, no auth, no caching delay
+        const res = await fetch(`https://api.mfapi.in/mf/${form.scheme.amfiCode}`);
+        if (!res.ok || cancelled) return;
+        const json = await res.json();
+        const history = json?.data; // [{date: "dd-MM-yyyy", nav: "123.45"}, ...]
+        if (!history?.length) return;
+
+        // Convert transaction date yyyy-MM-dd → dd-MM-yyyy for comparison
+        const [y, m, d] = form.transactionDate.split('-');
+        const targetKey = `${d}-${m}-${y}`;
+
+        // Find exact date or nearest previous trading day (up to 7 days back)
+        let found = null;
+        for (let i = 0; i <= 7; i++) {
+          const checkDate = new Date(form.transactionDate);
+          checkDate.setDate(checkDate.getDate() - i);
+          const dd = String(checkDate.getDate()).padStart(2, '0');
+          const mm = String(checkDate.getMonth() + 1).padStart(2, '0');
+          const yyyy = checkDate.getFullYear();
+          const key = `${dd}-${mm}-${yyyy}`;
+          const entry = history.find(e => e.date === key);
+          if (entry) { found = { nav: entry.nav, date: key, exact: i === 0 }; break; }
+        }
+
+        if (cancelled) return;
+
+        if (found) {
+          setForm(f => ({ ...f, nav: found.nav }));
+          const label = found.exact
+            ? `NAV on ${form.transactionDate}: ₹${parseFloat(found.nav).toFixed(4)}`
+            : `NAV (nearest: ${found.date}): ₹${parseFloat(found.nav).toFixed(4)} — market may have been closed`;
+          setNavHint(label);
         } else {
-          // Fallback: latest NAV
-          const latestRes = await fetch(`${API}/api/nav/latest/${form.scheme.amfiCode}`);
-          const latestData = await latestRes.json();
-          if (latestData.nav) {
-            setForm(f => ({ ...f, nav: latestData.nav.toString() }));
-            setNavHint(`Using latest NAV (${latestData.date}): ₹${parseFloat(latestData.nav).toFixed(4)}`);
-          }
+          // Fallback: use latest (first entry = most recent)
+          const latest = history[0];
+          setForm(f => ({ ...f, nav: latest.nav }));
+          setNavHint(`Using latest NAV (${latest.date}): ₹${parseFloat(latest.nav).toFixed(4)}`);
         }
       } catch (e) {
-        // Fallback to scheme's stored NAV
-        if (form.scheme.lastNav) {
-          setForm(f => ({ ...f, nav: form.scheme.lastNav.toString() }));
-          setNavHint(`Using stored NAV: ₹${parseFloat(form.scheme.lastNav).toFixed(4)}`);
-        }
+        if (!cancelled) setNavHint('Could not fetch NAV — enter manually');
+      } finally {
+        if (!cancelled) setNavLoading(false);
       }
     };
+
     fetchNav();
-  }, [form.scheme, form.transactionDate]);
+    return () => { cancelled = true; };
+  }, [form.scheme, form.transactionDate, mode]);
 
   const set = (key, val) => setForm(f => ({ ...f, [key]: val }));
 
@@ -190,6 +249,7 @@ function AddTransactionModal({ onClose, onSuccess, token }) {
   };
 
   const submit = async () => {
+    if (submitting) return; // double-submit guard — closes race condition window
     if (mode !== 'upload-cas') {
       if (!form.scheme) { setError('Please select a scheme'); return; }
       if (!form.transactionDate) { setError('Date is required'); return; }
@@ -289,8 +349,11 @@ function AddTransactionModal({ onClose, onSuccess, token }) {
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify(body),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to record transaction');
+      let data = {};
+      try { data = await res.json(); } catch (e) {}
+      if (!res.ok) {
+        throw new Error(data.error || `Server error ${res.status} - please make sure the backend server (mvn) has been restarted to apply recent security configuration changes.`);
+      }
       // data = Transaction object with transactionRef
       onSuccess({ _mode: 'single', ...data });
     } catch (e) {
@@ -368,17 +431,31 @@ function AddTransactionModal({ onClose, onSuccess, token }) {
               <div className="form-group">
                 <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   NAV (₹)
-                  <AnimatePresence>
-                    {navHint && (
-                      <motion.span 
-                        className="nav-hint" 
+                  <AnimatePresence mode="wait">
+                    {navLoading ? (
+                      <motion.span
+                        key="loading"
+                        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                        style={{ display: 'flex', alignItems: 'center', gap: '5px', color: '#A0A0B0', fontSize: '12px' }}
+                      >
+                        <motion.div
+                          animate={{ scale: [1, 1.4, 1], opacity: [0.4, 1, 0.4] }}
+                          transition={{ repeat: Infinity, duration: 0.9 }}
+                          style={{ width: 6, height: 6, borderRadius: '50%', background: '#A0A0B0' }}
+                        />
+                        Fetching NAV…
+                      </motion.span>
+                    ) : navHint ? (
+                      <motion.span
+                        key="hint"
+                        className="nav-hint"
                         initial={{ opacity: 0, x: -5 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }}
-                        style={{ color: '#00F298', display: 'flex', alignItems: 'center', gap: '4px' }}
+                        style={{ color: '#00F298', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px' }}
                       >
                         <motion.div animate={{ opacity: [0.3, 1, 0.3] }} transition={{ repeat: Infinity, duration: 1.5 }} style={{ width: 6, height: 6, borderRadius: '50%', background: '#00F298', boxShadow: '0 0 8px #00F298' }} />
                         {navHint}
                       </motion.span>
-                    )}
+                    ) : null}
                   </AnimatePresence>
                 </label>
                 <input className="form-input" type="number" min="0" step="0.0001" placeholder="NAV on transaction date"
@@ -386,9 +463,50 @@ function AddTransactionModal({ onClose, onSuccess, token }) {
               </div>
 
               <div className="form-group">
-                <label className="form-label">Folio Number</label>
-                <input className="form-input" type="text" placeholder="Auto-generated if blank"
-                  value={form.folioNumber} onChange={e => set('folioNumber', e.target.value)} id="txn-folio" />
+                <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  Folio Number
+                  {existingFolios.length > 0 && (
+                    <span style={{ fontSize: '11px', color: '#A0A0B0', fontWeight: 400 }}>— click to select</span>
+                  )}
+                </label>
+                {/* Folio chips — real AMC folios found in transaction history */}
+                {existingFolios.length > 0 && (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '8px' }}>
+                    {existingFolios.map(f => (
+                      <button
+                        key={f}
+                        type="button"
+                        onClick={() => set('folioNumber', f)}
+                        style={{
+                          padding: '3px 10px',
+                          borderRadius: '999px',
+                          border: form.folioNumber === f ? '1.5px solid #00F298' : '1.5px solid rgba(255,255,255,0.15)',
+                          background: form.folioNumber === f ? 'rgba(0,242,152,0.12)' : 'rgba(255,255,255,0.05)',
+                          color: form.folioNumber === f ? '#00F298' : '#C0C0D0',
+                          fontSize: '12px',
+                          cursor: 'pointer',
+                          fontFamily: 'monospace',
+                          transition: 'all 0.2s'
+                        }}
+                      >
+                        {f}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                <input
+                  className="form-input"
+                  type="text"
+                  placeholder={existingFolios.length > 0 ? 'Or type a different folio' : 'Enter your AMC folio number (from CAS / account statement)'}
+                  value={form.folioNumber}
+                  onChange={e => set('folioNumber', e.target.value)}
+                  id="txn-folio"
+                />
+                {existingFolios.length === 0 && form.scheme && (
+                  <div style={{ fontSize: '11px', color: '#888', marginTop: '4px' }}>
+                    No folio found in your history. Upload your CAS PDF or enter it manually.
+                  </div>
+                )}
               </div>
 
               <div className="form-group full-width">
@@ -522,9 +640,13 @@ export default function TransactionsPage() {
       const res = await fetch(`${API}/api/transactions`, {
         headers: { Authorization: `Bearer ${getToken()}` }
       });
+      if (!res.ok) {
+         console.warn(`Transactions API returned ${res.status}`);
+         return;
+      }
       const data = await res.json();
       setTransactions(Array.isArray(data) ? data : []);
-    } catch (e) { console.error(e); }
+    } catch (e) { console.error('Fetch transactions failed:', e); }
     finally { setLoading(false); }
   }, [getToken]);
 
@@ -724,6 +846,7 @@ export default function TransactionsPage() {
           <AddTransactionModal
             onClose={() => setShowAdd(false)}
             token={getToken()}
+            transactions={transactions}
             onSuccess={(result) => {
               setShowAdd(false);
               fetchTransactions();

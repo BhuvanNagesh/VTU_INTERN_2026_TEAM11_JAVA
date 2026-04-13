@@ -28,4 +28,14 @@ public interface InvestmentLotRepository extends JpaRepository<InvestmentLot, Lo
     @Modifying
     @Query("DELETE FROM InvestmentLot l WHERE l.transactionId = :transactionId")
     void deleteByTransactionId(@Param("transactionId") Long transactionId);
+
+    // Used by reconciliation service to remap WW_ISIN_ codes to real AMFI codes
+    List<InvestmentLot> findBySchemeAmfiCode(String schemeAmfiCode);
+
+    @Transactional
+    @Modifying
+    @Query("UPDATE InvestmentLot l SET l.schemeAmfiCode = :newCode, l.schemeName = :newName WHERE l.schemeAmfiCode = :oldCode")
+    int bulkUpdateSchemeAmfiCode(@Param("oldCode") String oldCode,
+                                 @Param("newCode") String newCode,
+                                 @Param("newName") String newName);
 }

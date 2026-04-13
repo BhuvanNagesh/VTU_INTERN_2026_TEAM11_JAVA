@@ -37,5 +37,4 @@ services:
         value: https://wealthwise-backend-zv5r.onrender.com
       - key: VITE_SUPABASE_URL
         value: https://pkktouewaqhvnwahoktn.supabase.co
-      - key: VITE_SUPABASE_ANON_KEY
-        value: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBra3RvdWV3YXFodm53YWhva3RuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMyNTUzNDQsImV4cCI6MjA4ODgzMTM0NH0.KkXsOxol8xcnkO8h9h9wREeXWFAOVAhB1wQJoPA_va8
+      # Set VITE_SUPABASE_ANON_KEY in the Render dashboard → Environment tab (do NOT commit it here)

@@ -1,5 +1,6 @@
 package com.wealthwise.model;
 
+import com.wealthwise.security.PanCardEncryptor;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
 
@@ -26,8 +27,10 @@ public class User {
     
     @Column(name = "currency")
     private String currency;
-    
-    @Column(name = "pan_card")
+
+    // AES-256-GCM encrypted at rest — key derived from app.jwt.secret
+    @Convert(converter = PanCardEncryptor.class)
+    @Column(name = "pan_card", length = 500) // encrypted value is longer than plain PAN
     private String panCard;
 
     @Column(name = "reset_otp")

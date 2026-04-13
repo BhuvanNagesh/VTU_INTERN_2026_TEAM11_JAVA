@@ -1,12 +1,18 @@
 package com.wealthwise.controller;
 
 import com.wealthwise.service.NavService;
+import com.wealthwise.service.SchemeReconciliationService;
+import com.wealthwise.repository.SchemeRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * On-demand NAV endpoints.
@@ -17,8 +23,9 @@ import java.util.Map;
 @RequestMapping("/api/nav")
 public class NavController {
 
-    @Autowired
-    private NavService navService;
+    @Autowired private NavService navService;
+    @Autowired private SchemeReconciliationService reconciliationService;
+    @Autowired private SchemeRepository schemeRepo;
 
     /**
      * Get latest NAV for a scheme (24h Caffeine cache)
@@ -84,6 +91,46 @@ public class NavController {
             return ResponseEntity.ok(navService.getHistoricalNavs(amfiCode));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    /**
+     * Preview all synthetic WW_ISIN_ / WW_ scheme codes currently in the DB.
+     * GET /api/nav/synthetic-schemes
+     * Use this BEFORE running the reconciliation to see what will be fixed.
+     */
+    @GetMapping("/synthetic-schemes")
+    public ResponseEntity<?> listSyntheticSchemes() {
+        List<Map<String, String>> synthetics = schemeRepo.findAll().stream()
+            .filter(s -> s.getAmfiCode() != null && s.getAmfiCode().startsWith("WW_"))
+            .map(s -> Map.of(
+                "syntheticCode", s.getAmfiCode(),
+                "schemeName",    s.getSchemeName() != null ? s.getSchemeName() : "",
+                "isin",          s.getIsinGrowth() != null ? s.getIsinGrowth() : ""
+            ))
+            .collect(Collectors.toList());
+        return ResponseEntity.ok(Map.of(
+            "count",    synthetics.size(),
+            "schemes",  synthetics
+        ));
+    }
+
+    /**
+     * Reconcile all synthetic WW_ISIN_ / WW_ codes in the DB to real AMFI codes.
+     * POST /api/nav/reconcile-synthetic-schemes
+     *
+     * This calls mfapi.in for each synthetic scheme, finds the real AMFI code,
+     * and bulk-updates transactions + investment_lots + scheme_master atomically.
+     * Safe to call multiple times (idempotent).
+     */
+    @PostMapping("/reconcile-synthetic-schemes")
+    public ResponseEntity<?> reconcileSyntheticSchemes() {
+        try {
+            Map<String, Object> result = reconciliationService.reconcileAll();
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError()
+                .body(Map.of("error", e.getMessage()));
         }
     }
 }

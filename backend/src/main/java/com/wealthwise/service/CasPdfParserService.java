@@ -53,7 +53,7 @@ public class CasPdfParserService {
             Pattern.CASE_INSENSITIVE);
 
     private static final Pattern CLOSING_UNITS_PATTERN = Pattern.compile(
-            "(?:Closing|Available)\\s+(?:Unit\\s+)?Balance\\s*[:\\-|]?\\s*([\\d,]+\\.\\d+)",
+            "(?:Closing|Available)\\s+(?:[/]?\\s*Available\\s+)?(?:Unit\\s+)?Balance\\s*[:\\-|]?\\s*([\\d,]+\\.\\d+)",
             Pattern.CASE_INSENSITIVE);
 
     private static final Pattern DATE_LINE = Pattern.compile(
@@ -129,6 +129,11 @@ public class CasPdfParserService {
             PDFTextStripper stripper = new PDFTextStripper();
             String fullText = stripper.getText(doc);
             log.info("[CAS] Extracted    : {} characters of text", fullText.length());
+            // DEBUG: log first 3000 chars so we can see exactly what PDFBox produced
+            if (log.isDebugEnabled() || fullText.length() < 5000) {
+                log.info("[CAS] === EXTRACTED TEXT PREVIEW (first 3000 chars) ===\n{}",
+                    fullText.substring(0, Math.min(3000, fullText.length())));
+            }
 
             log.info("[CAS] Step 2/4 — Splitting into folio blocks...");
             List<FolioBlock> folios = splitIntoFolios(fullText);
@@ -185,7 +190,10 @@ public class CasPdfParserService {
         for (String line : lines) {
             String trimmed = line.trim();
 
-            if (trimmed.equals("Portfolio Summary")) {
+            // Only stop at "Portfolio Summary" if we already found at least one folio.
+            // The new PDF format places a "Portfolio Summary" HEADING before the folio
+            // blocks (as a section label), so we must not stop on first occurrence.
+            if (trimmed.equals("Portfolio Summary") && current != null) {
                 break;
             }
 
@@ -262,7 +270,8 @@ public class CasPdfParserService {
                 .orElse(null);
         }
 
-        // Tier 2: Keyword match
+        // Tier 2: Keyword match — use FIRST meaningful words (AMC + fund type)
+        // e.g. "Axis Midcap Fund - Direct Plan" → search "Axis Midcap"
         if (matched == null && folio.pdfSchemeName != null) {
             String keyword = extractSearchKeyword(folio.pdfSchemeName);
             java.util.List<Scheme> candidates =
@@ -272,7 +281,16 @@ public class CasPdfParserService {
                     .filter(s -> "DIRECT".equals(s.getPlanType()))
                     .findFirst()
                     .orElse(candidates.get(0));
+                if (matched != null)
+                    log.info("[CAS] Tier-2 matched '{}' via keyword '{}' -> AMFI {}",
+                        folio.pdfSchemeName, keyword, matched.getAmfiCode());
             }
+        }
+
+        // Tier 3: mfapi.in scheme search by name — resolves ISIN to real AMFI code
+        // Only fires when DB has no ISIN and no keyword match.
+        if (matched == null && folio.pdfSchemeName != null) {
+            matched = resolveAmfiCodeFromMfApi(folio.pdfSchemeName, folio.isin);
         }
 
         if (matched != null) {
@@ -332,9 +350,10 @@ public class CasPdfParserService {
     }
 
     private void parseMultiLineTransactions(FolioBlock folio, String[] lines) {
-        // ── Strategy 1: true single-line format (all 6 tokens on one line) ──
+        // Strategy 1: true single-line format (all 6 tokens on one line)
+        // Amount may be in parentheses for redemptions: (10,000.00)
         Pattern singleLineTx = Pattern.compile(
-            "(\\d{2}-[A-Za-z]{3}-\\d{4})\\s+(.{4,60}?)\\s+([\\d,]+\\.\\d{2})\\s+([\\d.,]+)\\s+([\\d.,]+)\\s+([\\d.,]+)");
+            "(\\d{2}-[A-Za-z]{3}-\\d{4})\\s+(.{4,60}?)\\s+(\\(?[\\d,]+\\.\\d{2}\\)?)\\s+([\\d.,]+)\\s+([\\d.,]+)\\s+([\\d.,]+)");
 
         boolean foundSingleLine = false;
         for (String line : lines) {
@@ -345,7 +364,9 @@ public class CasPdfParserService {
                     TxRow row = new TxRow();
                     row.date         = LocalDate.parse(m.group(1), DATE_FMT);
                     row.description  = m.group(2).trim();
-                    row.amount       = parseBigDecimal(m.group(3));
+                    // Strip parentheses from negative amounts e.g. (10,000.00) → 10,000.00
+                    String rawAmount = m.group(3).replace("(", "").replace(")", "");
+                    row.amount       = parseBigDecimal(rawAmount);
                     row.units        = parseBigDecimal(m.group(4));
                     row.nav          = parseBigDecimal(m.group(5));
                     row.balanceUnits = parseBigDecimal(m.group(6));
@@ -681,17 +702,113 @@ public class CasPdfParserService {
         }
     }
 
+    /**
+     * Extracts the best 1-2 word search keyword from a PDF scheme name.
+     * Uses the FIRST meaningful words (AMC + fund type) rather than the
+     * last 2 words which are always generic ("Growth Option", "Direct Plan").
+     * e.g. "Axis Midcap Fund - Direct Plan" -> "Axis Midcap"
+     *      "Parag Parikh Flexi Cap Fund" -> "Parag Parikh"
+     */
     private String extractSearchKeyword(String pdfSchemeName) {
         if (pdfSchemeName == null) return "";
+        // Strip trailing plan/option qualifiers
         String cleaned = pdfSchemeName
             .replaceAll("(?i)\\s*-\\s*(Direct|Regular)\\s*(Plan)?.*", "")
             .replaceAll("(?i)\\s*(Fund|Scheme)\\s*$", "")
             .trim();
         String[] parts = cleaned.split("\\s+");
-        if (parts.length >= 3) {
-            return parts[parts.length - 2] + " " + parts[parts.length - 1];
+        // Use first 2 words — these are the most specific (AMC name + fund type)
+        if (parts.length >= 2) {
+            return parts[0] + " " + parts[1];   // e.g. "Axis Midcap", "Parag Parikh"
         }
-        return cleaned.length() > 30 ? cleaned.substring(0, 30) : cleaned;
+        return cleaned;
+    }
+
+    /**
+     * Tier 3: When ISIN lookup and DB name search both fail, try mfapi.in's
+     * search endpoint to resolve the scheme name to a real AMFI code.
+     * On success, updates scheme_master with the real AMFI code + ISIN so
+     * future imports match at Tier 1 (ISIN lookup).
+     */
+    private Scheme resolveAmfiCodeFromMfApi(String schemeName, String isin) {
+        try {
+            // Build search query: first 3 meaningful words
+            String[] parts = schemeName
+                .replaceAll("(?i)\\s*-\\s*(Direct|Regular).*", "")
+                .split("\\s+");
+            String query = String.join("+",
+                java.util.Arrays.copyOfRange(parts, 0, Math.min(3, parts.length)));
+
+            String url = "https://api.mfapi.in/mf/search?q=" + query;
+            log.info("[CAS] Tier-3 mfapi.in search: {}", url);
+
+            org.springframework.web.client.RestTemplate rt =
+                new org.springframework.web.client.RestTemplate();
+            rt.getMessageConverters().add(0,
+                new org.springframework.http.converter.StringHttpMessageConverter(
+                    java.nio.charset.StandardCharsets.UTF_8));
+
+            String json = rt.getForObject(url, String.class);
+            if (json == null || json.isBlank() || json.equals("[]")) return null;
+
+            com.fasterxml.jackson.databind.ObjectMapper om =
+                new com.fasterxml.jackson.databind.ObjectMapper();
+            com.fasterxml.jackson.databind.JsonNode arr = om.readTree(json);
+
+            // Find best match — prefer "Direct" plan
+            String bestAmfi = null;
+            String bestName = null;
+            for (com.fasterxml.jackson.databind.JsonNode node : arr) {
+                String code = node.path("schemeCode").asText("");
+                String name = node.path("schemeName").asText("");
+                if (code.isBlank() || name.isBlank()) continue;
+                if (name.toLowerCase().contains("direct")) {
+                    bestAmfi = code;
+                    bestName = name;
+                    break;
+                }
+                if (bestAmfi == null) { bestAmfi = code; bestName = name; }
+            }
+
+            if (bestAmfi == null) return null;
+
+            // Check if real scheme already in DB
+            Optional<Scheme> existing = schemeRepo.findByAmfiCode(bestAmfi);
+            if (existing.isPresent()) {
+                Scheme s = existing.get();
+                // Backfill ISIN so future imports skip Tier 3
+                if (isin != null && s.getIsinGrowth() == null) {
+                    s.setIsinGrowth(isin);
+                    try { schemeRepo.save(s); } catch (Exception ignored) {}
+                }
+                log.info("[CAS] Tier-3 resolved '{}' -> AMFI {} (already in DB)",
+                    schemeName, bestAmfi);
+                return s;
+            }
+
+            // Create minimal scheme entry from mfapi data
+            Scheme s = new Scheme();
+            s.setAmfiCode(bestAmfi);
+            s.setSchemeName(bestName);
+            s.setIsinGrowth(isin);
+            String[] derived = deriveCategory(bestName);
+            s.setBroadCategory(derived[0]);
+            s.setSebiCategory(derived[1]);
+            s.setRiskLevel(NavAllTxtParser.assignRiskLevel(derived[1], derived[0]));
+            s.setIsActive(true);
+            try {
+                schemeRepo.save(s);
+                log.info("[CAS] Tier-3 saved new scheme '{}' with AMFI {} ISIN {}",
+                    bestName, bestAmfi, isin);
+            } catch (Exception e) {
+                log.warn("[CAS] Tier-3 could not save scheme {}: {}", bestAmfi, e.getMessage());
+            }
+            return s;
+
+        } catch (Exception e) {
+            log.warn("[CAS] Tier-3 mfapi search failed for '{}': {}", schemeName, e.getMessage());
+            return null;
+        }
     }
 
     /**

@@ -253,7 +253,47 @@ public class TransactionService {
         reversal.setSource("MANUAL");
         reversal.setNotes("Reversal of " + original.getTransactionRef());
 
-        return transactionRepo.save(reversal);
+        Transaction saved = transactionRepo.save(reversal);
+
+        // Fix investment lot state to match the reversal
+        String type = original.getTransactionType();
+        if (isPurchaseType(type)) {
+            // Purchase reversed → delete the lots that were created for this purchase
+            lotRepo.deleteByTransactionId(originalTxnId);
+        } else if (isRedemptionType(type) && original.getUnits() != null
+                && original.getUnits().compareTo(BigDecimal.ZERO) > 0) {
+            // Redemption reversed → restore units to lots via FIFO (re-add to oldest lots first)
+            restoreLotsFromReversal(userId, original);
+        }
+
+        return saved;
+    }
+
+    /**
+     * After reversing a redemption, restore the consumed units back to investment lots.
+     * We find the lots that were partially/fully consumed and add back the redeemed units,
+     * respecting FIFO order (oldest lots first).
+     */
+    private void restoreLotsFromReversal(Long userId, Transaction original) {
+        String folio    = original.getFolioNumber();
+        String amfiCode = original.getSchemeAmfiCode();
+        BigDecimal unitsToRestore = original.getUnits();
+
+        List<InvestmentLot> lots = folio != null
+            ? lotRepo.findByUserIdAndSchemeAmfiCodeAndFolioNumberOrderByPurchaseDateAsc(userId, amfiCode, folio)
+            : lotRepo.findByUserIdAndSchemeAmfiCodeOrderByPurchaseDateAsc(userId, amfiCode);
+
+        // Restore to lots in ascending date order (FIFO — oldest lots were consumed first)
+        for (InvestmentLot lot : lots) {
+            if (unitsToRestore.compareTo(BigDecimal.ZERO) <= 0) break;
+            BigDecimal consumed   = lot.getUnitsOriginal().subtract(lot.getUnitsRemaining());
+            BigDecimal canRestore = consumed.min(unitsToRestore);
+            if (canRestore.compareTo(BigDecimal.ZERO) > 0) {
+                lot.setUnitsRemaining(lot.getUnitsRemaining().add(canRestore));
+                lotRepo.save(lot);
+                unitsToRestore = unitsToRestore.subtract(canRestore);
+            }
+        }
     }
 
     // ─── Queries ─────────────────────────────────────────────────────────────
@@ -398,15 +438,72 @@ public class TransactionService {
         }
     }
 
+
+    /**
+     * Resolves the folio number for a user+scheme combination.
+     *
+     * Priority:
+     *  1. Existing real (non-WW) folio for this AMFI code   → reuse it
+     *  2. Real folio from a CAS-imported entry for the same fund
+     *     (matched via isinGrowth or isinIdcw → WW_ISIN_* code)
+     *  3. Existing synthetic WW folio for this AMFI code    → reuse it
+     *  4. New synthetic folio: WW-{amfiCode}  (no userId leaked)
+     *
+     * This ensures manual + CAS transactions for the same fund share the
+     * same real AMC folio number whenever one is available.
+     */
     private String autoFolio(Long userId, String amfiCode) {
-        // Reuse existing folio for same user+scheme, else generate new
-        return transactionRepo
+        // ── 1. Real folio already recorded under this amfiCode ────────────────
+        String realFolio = transactionRepo
             .findByUserIdAndSchemeAmfiCodeOrderByTransactionDateAsc(userId, amfiCode)
-            .stream().map(Transaction::getFolioNumber)
+            .stream()
+            .map(Transaction::getFolioNumber)
+            .filter(f -> f != null && !f.isBlank() && !f.startsWith("WW"))
+            .findFirst()
+            .orElse(null);
+        if (realFolio != null) return realFolio;
+
+        // ── 2. Cross-reference via ISIN → find CAS folio for same fund ────────
+        Optional<Scheme> schemeOpt = schemeRepo.findByAmfiCode(amfiCode);
+        if (schemeOpt.isPresent()) {
+            Scheme scheme = schemeOpt.get();
+            // Try growth ISIN first, then IDCW
+            for (String isin : new String[]{ scheme.getIsinGrowth(), scheme.getIsinIdcw() }) {
+                if (isin == null || isin.isBlank()) continue;
+                String syntheticCode = "WW_ISIN_" + isin;
+                String casRealFolio = transactionRepo
+                    .findByUserIdAndSchemeAmfiCodeOrderByTransactionDateAsc(userId, syntheticCode)
+                    .stream()
+                    .map(Transaction::getFolioNumber)
+                    .filter(f -> f != null && !f.isBlank() && !f.startsWith("WW"))
+                    .findFirst()
+                    .orElse(null);
+                if (casRealFolio != null) {
+                    log.info("[Folio] Cross-referenced ISIN {} → real folio {}", isin, casRealFolio);
+                    return casRealFolio;
+                }
+            }
+        }
+
+        // ── 3. Reuse any existing synthetic folio for this code ───────────────
+        String existingSynthetic = transactionRepo
+            .findByUserIdAndSchemeAmfiCodeOrderByTransactionDateAsc(userId, amfiCode)
+            .stream()
+            .map(Transaction::getFolioNumber)
             .filter(f -> f != null && !f.isBlank())
             .findFirst()
-            .orElse("WW" + userId + amfiCode);
+            .orElse(null);
+        if (existingSynthetic != null) return existingSynthetic;
+
+        // ── 4. Generate folio in standard AMC format XXXXXXXX/XX ─────────────
+        // Deterministic: same user + scheme always produces the same folio
+        long numericCode = 0;
+        try { numericCode = Long.parseLong(amfiCode.replaceAll("\\D", "")); } catch (Exception ignored) {}
+        long folioBase = Math.abs((userId * 1_000_000L + numericCode) % 99_999_999L);
+        int folioSub   = (int)(userId % 99);
+        return String.format("%08d/%02d", folioBase, folioSub);
     }
+
 
     /**
      * Generates a unique transaction reference using UUID to prevent collisions

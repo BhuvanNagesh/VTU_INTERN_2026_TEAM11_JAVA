@@ -48,3 +48,10 @@ backend/.apt_generated_tests/
 # ─────────────────────────────────────────────────────────────────────────────
 backend/build_log.txt
 backend/dl-maven.js
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Sensitive data — CAS PDFs contain personal financial data; never commit them
+# ─────────────────────────────────────────────────────────────────────────────
+*.pdf
+generate_cas_pdf.py
+__pycache__/

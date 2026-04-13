@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { motion, AnimatePresence, animate, useMotionValue, useTransform } from 'framer-motion';
 import {
   AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer,
@@ -14,7 +14,7 @@ import { useNavigate } from 'react-router-dom';
 import { getNavHistory } from '../lib/mfApi';
 import './DashboardPage.css';
 
-const API = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
+import { API_BASE as API } from '../lib/config';
 
 // ═══════════════════════════════════════════════════════════════
 //  HELPERS
@@ -530,8 +530,8 @@ function AssetCategoryChart({ categoryBreakdown, holdings }) {
 //  CHART: FUND PERFORMANCE COMPARISON (BAR)
 // ═══════════════════════════════════════════════════════════════
 function FundPerformanceChart({ holdings }) {
-  const [range, setRange] = useState('1Y');
-
+  // All-time absolute return per fund — range filter is not applicable here
+  // because absoluteReturnPct from the backend is always the total holding period return.
   const barData = useMemo(() => {
     if (!holdings?.length) return [];
     return holdings
@@ -627,7 +627,11 @@ function FundsNavTrendChart({ holdings }) {
   useEffect(() => {
     if (!holdings?.length) return;
     const topFunds = holdings
-      .filter(h => h.schemeAmfiCode && (parseFloat(h.currentValue) > 0 || parseFloat(h.investedAmount) > 0))
+      .filter(h =>
+        h.schemeAmfiCode &&
+        // Skip synthetic codes created by CAS parser (WW_ISIN_*, etc.) — not valid mfapi IDs
+        /^\d+$/.test(h.schemeAmfiCode) &&
+        (parseFloat(h.currentValue) > 0 || parseFloat(h.investedAmount) > 0))
       .slice(0, 5);
 
     if (!topFunds.length) return;
@@ -874,6 +878,9 @@ function DrawdownTrendChart({ growthData, holdings }) {
       funds.map(async (h) => {
         try {
           const history = await getNavHistory(h.schemeAmfiCode);
+          // Store current units alongside history. Note: we use current units as an approximation.
+          // This slightly overstates early portfolio values for growing SIP portfolios,
+          // but produces a directionally correct drawdown chart without needing full tx history.
           return { code: h.schemeAmfiCode, units: parseFloat(h.units) || 0, history };
         } catch { return null; }
       })
@@ -885,7 +892,30 @@ function DrawdownTrendChart({ growthData, holdings }) {
   }, [holdings]);
 
   const chartData = useMemo(() => {
-    // If we have real NAV history, compute portfolio-level drawdown
+    // Primary: use growthData ratio (value/invested) to compute drawdown.
+    // This correctly reflects the actual portfolio value at each month (from real NAV history
+    // as computed by the backend), and is NOT distorted by using current-units on past dates.
+    if (growthData?.length > 1) {
+      const filtered = filterByRange(growthData, range);
+      if (!filtered?.length) return [];
+
+      // Compute a return-ratio series from the growth timeline.
+      // Peak of ratio = portfolio performing at its best relative to invested.
+      // Drawdown = how far the ratio has fallen from that peak.
+      let peakRatio = 0;
+      return filtered
+        .filter(d => parseFloat(d.invested) > 0)
+        .map(d => {
+          const val = parseFloat(d.value) || 0;
+          const inv = parseFloat(d.invested) || 1;
+          const ratio = val / inv; // e.g. 1.05 means 5% above invested
+          if (ratio > peakRatio) peakRatio = ratio;
+          const dd = peakRatio > 0 ? ((ratio - peakRatio) / peakRatio) * 100 : 0;
+          return { label: shortMonth(d.month), drawdown: parseFloat(dd.toFixed(2)) };
+        });
+    }
+
+    // Fallback: use navData portfolio value series if growthData unavailable
     if (navData?.length > 0) {
       const allDates = new Set();
       navData.forEach(f => f.history.forEach(d => allDates.add(d.date)));
@@ -900,11 +930,9 @@ function DrawdownTrendChart({ growthData, holdings }) {
         if (filtered.length > 0) dates = filtered;
       }
 
-      // Sample to ~80 points for performance
       const step = Math.max(1, Math.floor(dates.length / 80));
       const sampled = dates.filter((_, i) => i % step === 0 || i === dates.length - 1);
 
-      // Build lookup for fast NAV access
       const navLookups = navData.map(f => {
         const map = new Map();
         f.history.forEach(d => map.set(d.date, d.nav));
@@ -931,21 +959,10 @@ function DrawdownTrendChart({ growthData, holdings }) {
       return points;
     }
 
-    // Fallback: use growthData
-    if (!growthData?.length) return [];
-    const filtered = filterByRange(growthData, range);
-    if (!filtered?.length) return [];
-
-    let peak = 0;
-    return filtered.map(d => {
-      const val = parseFloat(d.value) || 0;
-      if (val > peak) peak = val;
-      const dd = peak > 0 ? ((val - peak) / peak) * 100 : 0;
-      return { label: shortMonth(d.month), drawdown: dd };
-    });
+    return [];
   }, [navData, growthData, range]);
 
-  if (navLoading) return <div className="chart-empty">Calculating drawdown from live NAV data…</div>;
+  if (navLoading && !growthData?.length) return <div className="chart-empty">Calculating drawdown from live NAV data…</div>;
   if (!chartData.length) return <div className="chart-empty">Insufficient data for drawdown analysis</div>;
 
   const maxDD = Math.min(...chartData.map(d => d.drawdown));
@@ -999,12 +1016,17 @@ export default function DashboardPage() {
   const [configOpen, setConfigOpen] = useState(false);
   const [visibleCharts, setVisibleCharts] = useState(loadVisibleCharts);
 
+  // tokenRef avoids re-creating fetchPortfolio on every AuthContext re-render
+  // (stale closure fix: read token from ref inside the callback, not from closure)
+  const tokenRef = useRef(getToken);
+  tokenRef.current = getToken;
+
   const fetchPortfolio = useCallback(async () => {
     setRefreshing(true);
     setError('');
     try {
       const res = await fetch(`${API}/api/returns/portfolio`, {
-        headers: { Authorization: `Bearer ${getToken()}` }
+        headers: { Authorization: `Bearer ${tokenRef.current()}` }
       });
       if (!res.ok) {
         const json = await res.json().catch(() => ({}));
@@ -1018,7 +1040,7 @@ export default function DashboardPage() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [getToken]);
+  }, []); // stable — no dependencies needed because we read via ref
 
   useEffect(() => { fetchPortfolio(); }, [fetchPortfolio]);
 

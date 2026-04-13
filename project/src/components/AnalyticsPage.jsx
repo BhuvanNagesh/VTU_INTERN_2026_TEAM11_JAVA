@@ -5,7 +5,7 @@ import { ResponsiveContainer, Radar, RadarChart, PolarGrid, PolarAngleAxis } fro
 import { useAuth } from '../context/AuthContext';
 import './AnalyticsPage.css';
 
-const API = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
+import { API_BASE as API } from '../lib/config';
 
 const formatCurrency = (val) => {
   if (val === undefined || val === null) return '₹0.00';
@@ -17,8 +17,10 @@ export default function AnalyticsPage() {
   const { getToken } = useAuth();
   const [activeTab, setActiveTab] = useState('risk');
   const [data, setData] = useState({ risk: null, sip: null, overlap: null });
+  const [sipExtra, setSipExtra] = useState({ topup: null, optimize: null });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [accurateMode, setAccurateMode] = useState(false);
 
   const fetchAnalytics = useCallback(async () => {
     setLoading(true);
@@ -33,6 +35,17 @@ export default function AnalyticsPage() {
       if (!resRisk.ok) throw new Error('Failed to load Risk Profile');
       const [risk, sip, overlap] = await Promise.all([resRisk.json(), resSip.json(), resOverlap.json()]);
       setData({ risk, sip, overlap });
+      // Non-critical: fetch SIP extras (top-up calculator + optimizer)
+      try {
+        const [resTopup, resOptimize] = await Promise.all([
+          fetch(`${API}/api/sip/topup`,    { headers: { Authorization: `Bearer ${token}` } }),
+          fetch(`${API}/api/sip/optimize`, { headers: { Authorization: `Bearer ${token}` } })
+        ]);
+        if (resTopup.ok && resOptimize.ok) {
+          const [topup, optimize] = await Promise.all([resTopup.json(), resOptimize.json()]);
+          setSipExtra({ topup, optimize });
+        }
+      } catch (_) { /* non-critical extras — silently ignore */ }
     } catch (e) {
       setError(e.message);
     } finally {
@@ -46,10 +59,12 @@ export default function AnalyticsPage() {
   const renderRiskTab = () => {
     if (!data.risk) return null;
     const { portfolioRiskScore, portfolioRiskLabel, diversificationScore, volatilityPct, sharpeRatio,
-            maxDrawdownPct, totalFunds, uniqueAmcs, riskAppetite, riskAppetiteDescription } = data.risk;
+            maxDrawdownPct, totalFunds, uniqueAmcs, derivedRiskAppetite, derivedRiskAppetiteDescription,
+            riskComparison } = data.risk;
 
     const appetiteColors = { Conservative: '#00D09C', Moderate: '#FFB247', Aggressive: '#FF4D4D' };
-    const appetiteColor = appetiteColors[riskAppetite] || '#8C52FF';
+    const appetiteColor = appetiteColors[derivedRiskAppetite] || '#8C52FF';
+    const riskAppetiteDescription = derivedRiskAppetiteDescription || '';
 
     let riskBadgeClass = 'risk-Moderate';
     if (portfolioRiskLabel?.includes('Low')) riskBadgeClass = 'risk-Low';
@@ -81,12 +96,13 @@ export default function AnalyticsPage() {
       return 100;
     })();
     const drawdownScore = (() => {
-      const d = maxDrawdownPct || 0; // d is negative %
-      if (d >= 0)   return 100;
-      if (d >= -10) return 70;
-      if (d >= -20) return 40;
-      if (d >= -30) return 10;
-      return 5;
+      const d = maxDrawdownPct || 0; // d is positive % (e.g. 5.23 = 5.23% peak-to-trough decline)
+      if (d <= 0)   return 100; // no drawdown — perfect
+      if (d <= 5)   return 85;  // very minor dip
+      if (d <= 10)  return 70;  // normal equity drawdown
+      if (d <= 20)  return 40;  // significant correction
+      if (d <= 30)  return 10;  // bear market territory
+      return 5;                 // severe crash
     })();
 
     const radarData = [
@@ -112,17 +128,30 @@ export default function AnalyticsPage() {
             </p>
           </div>
 
-          {/* User's Risk Appetite */}
+          {/* Your Risk Appetite — derived from portfolio risk score */}
           <div className="intel-card glassmorphism">
-            <div style={{ marginBottom: '16px' }}>
+            <div style={{ marginBottom: '12px' }}>
               <h3 className="card-title" style={{ marginBottom: 0 }}><Target size={16} color={appetiteColor} /> Your Risk Appetite</h3>
             </div>
-            <div className="risk-score-display">
-              <span className="risk-number" style={{ fontSize: '36px', color: appetiteColor }}>{riskAppetite}</span>
-              <p style={{ fontSize: '12px', color: '#A0A0B0', marginTop: '8px', textAlign: 'center' }}>
-                {riskAppetiteDescription}
-              </p>
+            <div style={{ textAlign: 'center', marginBottom: '12px' }}>
+              <span className="risk-number" style={{ fontSize: '34px', color: appetiteColor }}>
+                {derivedRiskAppetite || '—'}
+              </span>
             </div>
+            {/* Spectrum indicator */}
+            <div style={{ display: 'flex', justifyContent: 'center', gap: '6px', marginBottom: '14px' }}>
+              {[['Conservative','#00D09C'],['Moderate','#FFB247'],['Aggressive','#FF4D4D']].map(([label, col]) => (
+                <div key={label} style={{
+                  width: '10px', height: '10px', borderRadius: '50%',
+                  background: derivedRiskAppetite === label ? col : 'rgba(255,255,255,0.12)',
+                  boxShadow: derivedRiskAppetite === label ? `0 0 8px ${col}` : 'none',
+                  transition: 'all 0.3s'
+                }} title={label} />
+              ))}
+            </div>
+            <p style={{ fontSize: '11px', color: '#A0A0B0', textAlign: 'center', margin: 0 }}>
+              {riskAppetiteDescription}
+            </p>
           </div>
 
           {/* Diversification */}
@@ -142,25 +171,42 @@ export default function AnalyticsPage() {
         {/* Advanced Metrics + Radar */}
         <div className="intel-grid" style={{ gridTemplateColumns: '1fr 1.6fr' }}>
           <div className="intel-card glassmorphism">
-            <h3 className="card-title">Advanced Metrics</h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', flex: 1, justifyContent: 'center' }}>
-              {[
-                { label: 'Return Std. Deviation (σ)', value: `${volatilityPct}%`, color: '#fff',
-                  note: 'Population std-dev of per-transaction returns. Not annualized.' },
-                { label: 'Sharpe Ratio', value: sharpeRatio, color: sharpeRatio >= 1 ? '#00D09C' : '#FFB247',
-                  note: sharpeRatio >= 1.5 ? 'Excellent' : sharpeRatio >= 1 ? 'Good' : sharpeRatio >= 0.5 ? 'Adequate' : 'Poor' },
-                { label: 'Max Drawdown', value: `${maxDrawdownPct}%`, color: '#FF4D4D',
-                  note: 'Peak-to-trough decline in portfolio value' },
-              ].map(({ label, value, color, note }) => (
-                <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ color: '#A0A0B0', fontSize: '13px' }}>{label}</span>
-                  <div style={{ textAlign: 'right' }}>
-                    <span style={{ fontWeight: 700, color }}>{value}</span>
-                    {note && <div style={{ fontSize: '10px', color, opacity: 0.7 }}>{note}</div>}
-                  </div>
+            <h3 className="card-title">
+              Advanced Metrics
+              <button
+                className={`metrics-toggle ${accurateMode ? 'active' : ''}`}
+                onClick={() => setAccurateMode(m => !m)}
+                title={accurateMode ? 'Showing: Precise (NAV-based monthly returns)' : 'Showing: Quick (transaction-based snapshot)'}
+              >
+                <span className="metrics-toggle-dot" />
+                <span className="metrics-toggle-label">{accurateMode ? 'Precise' : 'Quick'}</span>
+              </button>
+            </h3>
+            {(() => {
+              const dVol = accurateMode ? (data.risk.accurateVolatilityPct ?? volatilityPct) : volatilityPct;
+              const dSharpe = accurateMode ? (data.risk.accurateSharpeRatio ?? sharpeRatio) : sharpeRatio;
+              const dDD = accurateMode ? (data.risk.accurateMaxDrawdownPct ?? maxDrawdownPct) : maxDrawdownPct;
+              return (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', flex: 1, justifyContent: 'center' }}>
+                  {[
+                    { label: 'Annualised Volatility (σ)', value: `${dVol}%`, color: '#fff',
+                      note: accurateMode ? 'Monthly return σ × √12 from real NAV history' : 'Transaction-snapshot σ × √12 (approximate)' },
+                    { label: 'Sharpe Ratio', value: dSharpe, color: dSharpe >= 1 ? '#00D09C' : '#FFB247',
+                      note: dSharpe >= 1.5 ? 'Excellent' : dSharpe >= 1 ? 'Good' : dSharpe >= 0.5 ? 'Adequate' : 'Poor' },
+                    { label: 'Max Drawdown', value: `${dDD}%`, color: '#FF4D4D',
+                      note: accurateMode ? 'Ratio-based peak-to-trough (deposit-adjusted)' : 'Peak-to-trough decline in portfolio value' },
+                  ].map(({ label, value, color, note }) => (
+                    <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ color: '#A0A0B0', fontSize: '13px' }}>{label}</span>
+                      <div style={{ textAlign: 'right' }}>
+                        <span style={{ fontWeight: 700, color }}>{value}</span>
+                        {note && <div style={{ fontSize: '10px', color, opacity: 0.7 }}>{note}</div>}
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
+              );
+            })()}
           </div>
 
           <div className="intel-card glassmorphism" style={{ height: '300px' }}>
@@ -233,6 +279,80 @@ export default function AnalyticsPage() {
             </div>
           )}
         </div>
+
+        {/* ── Top-Up Power Calculator ── */}
+        {sipExtra.topup && (
+          <div className="intel-card glassmorphism">
+            <h3 className="card-title">
+              <Zap size={16} color="#FFB247" /> Top-Up Power Calculator
+            </h3>
+            <p style={{ fontSize: '13px', color: '#A0A0B0', marginBottom: '20px', lineHeight: 1.6 }}>
+              Based on your <strong style={{ color: '#E0E0FF' }}>{formatCurrency(sipExtra.topup.monthlyAmount)}/month</strong> SIP
+              over <strong style={{ color: '#E0E0FF' }}>{sipExtra.topup.years} years</strong> at 12% p.a. —
+              see how a <strong style={{ color: '#FFB247' }}>{sipExtra.topup.stepUpPct}% annual step-up</strong> changes your final corpus.
+            </p>
+            <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', marginBottom: '24px' }}>
+              {[
+                { label: 'Without Step-Up', value: formatCurrency(sipExtra.topup.withoutTopUp), color: '#A0A0B0', bg: 'rgba(160,160,176,0.08)' },
+                { label: `With ${sipExtra.topup.stepUpPct}% Annual Step-Up`, value: formatCurrency(sipExtra.topup.withTopUp), color: '#00D09C', bg: 'rgba(0,208,156,0.08)' },
+                { label: 'Extra Wealth Potential', value: formatCurrency(sipExtra.topup.difference), color: '#FFB247', bg: 'rgba(255,178,71,0.08)' },
+              ].map(({ label, value, color, bg }) => (
+                <div key={label} style={{ flex: 1, minWidth: '180px', padding: '16px', borderRadius: '12px', background: bg, border: `1px solid ${color}22` }}>
+                  <div style={{ fontSize: '11px', color: '#A0A0B0', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>{label}</div>
+                  <div style={{ fontSize: '22px', fontWeight: 800, color }}>{value}</div>
+                </div>
+              ))}
+            </div>
+            {(() => {
+              const max = sipExtra.topup.withTopUp;
+              const pctFlat = max > 0 ? (sipExtra.topup.withoutTopUp / max) * 100 : 0;
+              return (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  {[{ label: 'Flat SIP', pct: pctFlat, color: '#A0A0B0' },
+                    { label: 'Step-Up SIP', pct: 100, color: '#00D09C' }].map(({ label, pct, color }) => (
+                    <div key={label}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px', fontSize: '12px', color: '#A0A0B0' }}>
+                        <span>{label}</span><span style={{ color }}>{pct.toFixed(0)}%</span>
+                      </div>
+                      <div style={{ height: '8px', borderRadius: '4px', background: 'rgba(255,255,255,0.06)', overflow: 'hidden' }}>
+                        <div style={{ height: '100%', width: `${pct}%`, borderRadius: '4px', background: color, transition: 'width 1s ease' }} />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              );
+            })()}
+            <p style={{ marginTop: '16px', fontSize: '11px', color: '#606080', lineHeight: 1.5 }}>
+              Step-up SIP: each April, your monthly investment automatically increases by {sipExtra.topup.stepUpPct}%,
+              compounding wealth far beyond a flat SIP at the same initial amount.
+            </p>
+          </div>
+        )}
+
+        {/* ── SIP Day Optimizer ── */}
+        {sipExtra.optimize && (
+          <div className="intel-card glassmorphism">
+            <h3 className="card-title">
+              <CheckCircle2 size={16} color="#00D09C" /> SIP Day Optimizer
+            </h3>
+            <div style={{ display: 'flex', gap: '16px', alignItems: 'flex-start', flexWrap: 'wrap' }}>
+              <div style={{ flex: 1 }}>
+                <p style={{ fontSize: '13px', color: '#C0C0D0', lineHeight: 1.7 }}>{sipExtra.optimize.tip}</p>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', minWidth: '160px' }}>
+                <div style={{ fontSize: '11px', color: '#A0A0B0', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Recommended Days</div>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  {sipExtra.optimize.bestDays?.map(d => (
+                    <span key={d} style={{ width: '36px', height: '36px', borderRadius: '50%', background: 'rgba(0,208,156,0.15)', border: '1px solid rgba(0,208,156,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, color: '#00D09C', fontSize: '14px' }}>{d}</span>
+                  ))}
+                </div>
+                <div style={{ marginTop: '4px', fontSize: '11px', color: '#FF4D4D' }}>
+                  ⚠️ Avoid: {sipExtra.optimize.avoid}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </motion.div>
     );
   };
@@ -240,45 +360,52 @@ export default function AnalyticsPage() {
   // ─── Overlap Tab ─────────────────────────────────────────────────────────────
   const renderOverlapTab = () => {
     if (!data.overlap) return null;
-    const { links, nodes, averageOverlapPct } = data.overlap;
-    const overlapColor = averageOverlapPct > 35 ? '#FF4D4D' : averageOverlapPct > 20 ? '#FFB247' : '#00D09C';
+    const { links, nodes, averageCategorySimilarityPct, disclaimer } = data.overlap;
+    const avgPct = averageCategorySimilarityPct ?? 0;
+    const overlapColor = avgPct > 35 ? '#FF4D4D' : avgPct > 20 ? '#FFB247' : '#00D09C';
     return (
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
         <div className="intel-card glassmorphism" style={{ marginBottom: '24px' }}>
           <div style={{ display: 'flex', gap: '24px', alignItems: 'flex-start' }}>
             <div style={{ flex: 1 }}>
-              <h3 className="card-title"><Network size={16} color="#00F298" /> Portfolio Overlap Analysis</h3>
+              <h3 className="card-title"><Network size={16} color="#00F298" /> Portfolio Category Similarity</h3>
               <p style={{ fontSize: '13px', color: '#A0A0B0', lineHeight: 1.6 }}>
-                Fund overlap occurs when multiple funds hold the same underlying stocks, reducing true diversification. 
-                Overlap is estimated via SEBI category matching — funds in the same category typically share <strong>40-55% of their top holdings</strong>.
+                Measures how similar your funds are by SEBI category. Funds in the same category often share top holdings.
               </p>
+              {disclaimer && (
+                <p style={{ fontSize: '11px', color: '#FFB247', marginTop: '8px', padding: '8px 12px',
+                  background: 'rgba(255,178,71,0.08)', borderRadius: '8px', border: '1px solid rgba(255,178,71,0.2)' }}>
+                  ⚠️ {disclaimer}
+                </p>
+              )}
             </div>
             <div style={{ textAlign: 'center', padding: '20px', background: 'rgba(0,0,0,0.2)', borderRadius: '12px', minWidth: '100px' }}>
-              <div style={{ fontSize: '36px', fontWeight: 800, color: overlapColor }}>{averageOverlapPct}%</div>
-              <div style={{ fontSize: '11px', textTransform: 'uppercase', color: '#A0A0B0', marginTop: '4px' }}>Avg Overlap</div>
+              <div style={{ fontSize: '36px', fontWeight: 800, color: overlapColor }}>{avgPct}%</div>
+              <div style={{ fontSize: '11px', textTransform: 'uppercase', color: '#A0A0B0', marginTop: '4px' }}>Avg Similarity</div>
               <div style={{ fontSize: '11px', color: overlapColor, marginTop: '4px', fontWeight: 600 }}>
-                {averageOverlapPct > 35 ? '⚠️ High' : averageOverlapPct > 20 ? '⚡ Moderate' : '✅ Low'}
+                {avgPct > 35 ? '⚠️ High' : avgPct > 20 ? '⚡ Moderate' : '✅ Low'}
               </div>
             </div>
           </div>
         </div>
         <div className="intel-card glassmorphism">
-          <h3 className="card-title">Pairwise Overlap Matrix</h3>
+          <h3 className="card-title">Pairwise Category Similarity Matrix</h3>
           {links?.length > 0 ? (
             <table className="sip-comparison-table">
-              <thead><tr><th>Fund A</th><th>Fund B</th><th>Estimated Overlap</th><th>Risk</th></tr></thead>
+              <thead><tr><th>Fund A</th><th>Fund B</th><th>Category Similarity</th><th>Level</th></tr></thead>
               <tbody>
-                {links.sort((a, b) => b.overlapPct - a.overlapPct).map((link, i) => {
+                {links.sort((a, b) => b.categorySimilarityPct - a.categorySimilarityPct).map((link, i) => {
                   const nameA = nodes?.find(n => n.id === link.source)?.name || link.source;
                   const nameB = nodes?.find(n => n.id === link.target)?.name || link.target;
-                  const col = link.overlapPct > 35 ? '#FF4D4D' : link.overlapPct > 20 ? '#FFB247' : '#00D09C';
+                  const pct = link.categorySimilarityPct;
+                  const col = pct > 35 ? '#FF4D4D' : pct > 20 ? '#FFB247' : '#00D09C';
                   return (
                     <tr key={i}>
                       <td style={{ fontSize: '13px', maxWidth: '200px' }}>{nameA}</td>
                       <td style={{ fontSize: '13px', maxWidth: '200px' }}>{nameB}</td>
-                      <td style={{ fontWeight: 700, color: col }}>{link.overlapPct}%</td>
+                      <td style={{ fontWeight: 700, color: col }}>{pct}%</td>
                       <td style={{ color: col, fontWeight: 600 }}>
-                        {link.overlapPct > 35 ? 'High' : link.overlapPct > 20 ? 'Moderate' : 'Low'}
+                        {pct > 35 ? 'High' : pct > 20 ? 'Moderate' : 'Low'}
                       </td>
                     </tr>
                   );
@@ -294,6 +421,7 @@ export default function AnalyticsPage() {
       </motion.div>
     );
   };
+
 
   return (
     <div className="analytics-page">

@@ -4,7 +4,7 @@ import { User, Phone, CreditCard, Lock, Save, Check, AlertTriangle, ChevronDown,
 import { useAuth } from '../context/AuthContext';
 import './ProfilePage.css';
 
-const API = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
+import { API_BASE as API } from '../lib/config';
 
 const CURRENCIES = [
   { value: 'INR', label: '₹ Indian Rupee (INR)' },

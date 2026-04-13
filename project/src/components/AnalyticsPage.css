@@ -197,3 +197,67 @@
 [data-theme="light"] .sip-comparison-table th { border-bottom-color: var(--border-card); }
 [data-theme="light"] .sip-comparison-table td { border-bottom-color: rgba(0,0,0,0.05); }
 
+/* ═══════════════════════════════════════════════════════════════
+   METRICS TOGGLE (Quick / Precise)
+═══════════════════════════════════════════════════════════════ */
+.metrics-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  border-radius: 20px;
+  border: 1px solid rgba(140, 82, 255, 0.3);
+  background: rgba(140, 82, 255, 0.08);
+  cursor: pointer;
+  font-size: 10px;
+  font-weight: 600;
+  color: #A0A0B0;
+  transition: all 0.3s ease;
+  font-family: 'Inter', sans-serif;
+}
+.metrics-toggle:hover {
+  border-color: rgba(140, 82, 255, 0.6);
+  background: rgba(140, 82, 255, 0.15);
+}
+.metrics-toggle.active {
+  border-color: rgba(0, 208, 156, 0.5);
+  background: rgba(0, 208, 156, 0.1);
+  color: #00D09C;
+}
+.metrics-toggle-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #A0A0B0;
+  transition: all 0.3s ease;
+}
+.metrics-toggle.active .metrics-toggle-dot {
+  background: #00D09C;
+  box-shadow: 0 0 6px rgba(0, 208, 156, 0.6);
+}
+.metrics-toggle-label {
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Light mode */
+[data-theme="light"] .metrics-toggle {
+  border-color: rgba(107, 63, 204, 0.25);
+  background: rgba(107, 63, 204, 0.06);
+  color: #6B6B7B;
+}
+[data-theme="light"] .metrics-toggle:hover {
+  border-color: rgba(107, 63, 204, 0.5);
+  background: rgba(107, 63, 204, 0.12);
+}
+[data-theme="light"] .metrics-toggle.active {
+  border-color: rgba(0, 168, 126, 0.4);
+  background: rgba(0, 168, 126, 0.08);
+  color: #00A87E;
+}
+[data-theme="light"] .metrics-toggle.active .metrics-toggle-dot {
+  background: #00A87E;
+  box-shadow: 0 0 4px rgba(0, 168, 126, 0.5);
+}
+

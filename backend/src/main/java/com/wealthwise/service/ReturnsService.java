@@ -4,6 +4,7 @@ import com.wealthwise.model.Transaction;
 import com.wealthwise.repository.InvestmentLotRepository;
 import com.wealthwise.repository.SchemeRepository;
 import com.wealthwise.repository.TransactionRepository;
+import com.wealthwise.util.TransactionTypeUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -399,12 +400,17 @@ public class ReturnsService {
         return timeline;
     }
 
-    /** Applies a transaction's unit change to the running unit balance map. */
+    /**
+     * Applies a transaction's unit change to the running unit balance map.
+     * IMPORTANT: uses TransactionTypeUtil.isPurchase which INCLUDES DIVIDEND_REINVEST,
+     * because dividend reinvestments DO create real units even though no new cash was paid.
+     * Only the invested-amount tracking (below) correctly excludes DIVIDEND_REINVEST.
+     */
     private void applyTransactionToUnits(Transaction t, Map<String, BigDecimal> unitsHeld) {
         if (t.getUnits() == null || t.getSchemeAmfiCode() == null) return;
-        if (isPurchase(t)) {
+        if (TransactionTypeUtil.isPurchase(t.getTransactionType())) {
             unitsHeld.merge(t.getSchemeAmfiCode(), t.getUnits(), BigDecimal::add);
-        } else if (isRedemption(t)) {
+        } else if (TransactionTypeUtil.isRedemption(t.getTransactionType())) {
             BigDecimal current = unitsHeld.getOrDefault(t.getSchemeAmfiCode(), BigDecimal.ZERO);
             unitsHeld.put(t.getSchemeAmfiCode(), current.subtract(t.getUnits()).max(BigDecimal.ZERO));
         }
@@ -442,18 +448,16 @@ public class ReturnsService {
         return null;
     }
 
+    /**
+     * isPurchase = real cash outflow from investor (used for XIRR and "invested amount" tracking).
+     * Deliberately EXCLUDES DIVIDEND_REINVEST — it's an internal NAV event, not new investor cash.
+     */
     private boolean isPurchase(Transaction t) {
-        String type = t.getTransactionType();
-        // DIVIDEND_REINVEST deliberately excluded — it's an internal NAV event,
-        // not a cash outflow from the investor. It should not appear in XIRR cash flows.
-        return type != null && (type.equals("PURCHASE_LUMPSUM") || type.equals("PURCHASE_SIP")
-            || type.equals("SWITCH_IN") || type.equals("STP_IN"));
+        return TransactionTypeUtil.isPurchaseCashOutflow(t.getTransactionType());
     }
 
     private boolean isRedemption(Transaction t) {
-        String type = t.getTransactionType();
-        return type != null && (type.equals("REDEMPTION") || type.equals("SWITCH_OUT")
-            || type.equals("STP_OUT") || type.equals("SWP"));
+        return TransactionTypeUtil.isRedemption(t.getTransactionType());
     }
 
     // ─── CashFlow DTO ────────────────────────────────────────────────────────

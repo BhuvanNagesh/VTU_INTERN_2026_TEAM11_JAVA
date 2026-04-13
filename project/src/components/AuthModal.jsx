@@ -5,10 +5,10 @@ import {
     ChevronDown, ArrowRight, CheckCircle2, TrendingUp, AlertCircle
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { API_BASE } from '../lib/config';
 import './AuthModal.css';
 
 const currencies = ['INR – Indian Rupee', 'USD – US Dollar', 'EUR – Euro', 'GBP – British Pound', 'AED – UAE Dirham'];
-const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
 
 // ── Helpers ───────────────────────────────────────────────────────────────
 const InputField = ({ icon: Icon, type = 'text', placeholder, value, onChange, autoComplete }) => (

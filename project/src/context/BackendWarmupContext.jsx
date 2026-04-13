@@ -1,8 +1,8 @@
 import { createContext, useContext, useEffect, useState, useRef } from 'react';
+import { API_BASE } from '../lib/config';
 
 const BackendWarmupContext = createContext(null);
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
 const HEALTH_URL = `${API_BASE}/api/auth/health`;
 const KEEPALIVE_INTERVAL_MS = 9 * 60 * 1000; // ping every 9 minutes to prevent 15-min spin-down
 const MAX_WAIT_MS = 90_000; // give backend up to 90 seconds to wake
