@@ -540,8 +540,12 @@ public class CasPdfParserService {
             boolean isRedemption = type.startsWith("REDEMPT") || type.startsWith("SWITCH_OUT") || type.startsWith("SWP") || type.startsWith("STP_OUT");
 
             Transaction tx = new Transaction();
-            tx.setTransactionRef("WW" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss"))
-                + String.format("%04d", (int)(Math.random() * 9999)) + count);
+            // Use nanoseconds + sequential count to guarantee uniqueness even for 100+ transactions
+            // saved in the same second from a CAS bulk import (second-precision caused UNIQUE violations)
+            tx.setTransactionRef("WW"
+                + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss"))
+                + String.format("%06d", System.nanoTime() % 1_000_000L)
+                + String.format("%03d", count % 1000));
             tx.setUserId(userId);
             tx.setSchemeAmfiCode(amfiCode);
             tx.setSchemeName(scheme.getSchemeName());

@@ -137,6 +137,7 @@ function AddTransactionModal({ onClose, onSuccess, token }) {
     stepUp: '', // for SIP bulk
   });
   const [submitting, setSubmitting] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(''); // shown during CAS upload
   const [error, setError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
   const [navHint, setNavHint] = useState('');
@@ -209,8 +210,22 @@ function AddTransactionModal({ onClose, onSuccess, token }) {
       
       const formData = new FormData();
       formData.append('file', casualFile);
-      // Wait, we don't have to send userId, the backend extracts it from token
-      
+
+      // Show rotating progress messages so the user knows it's working (CAS parse can take 5-15s)
+      const progressSteps = [
+        '📄 Reading PDF…',
+        '🔍 Identifying folios…',
+        '📊 Parsing transactions…',
+        '🏦 Matching fund schemes…',
+        '💾 Saving to ledger…',
+      ];
+      let stepIdx = 0;
+      setUploadProgress(progressSteps[0]);
+      const progressTimer = setInterval(() => {
+        stepIdx = (stepIdx + 1) % progressSteps.length;
+        setUploadProgress(progressSteps[stepIdx]);
+      }, 2500);
+
       try {
         const res = await fetch(`${API}/api/transactions/upload-cas`, {
           method: 'POST',
@@ -219,10 +234,13 @@ function AddTransactionModal({ onClose, onSuccess, token }) {
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Failed to upload CAS');
-        onSuccess(data);
+        // data = { status, totalFolios, totalTransactions, uploadId }
+        onSuccess({ _mode: 'upload-cas', ...data });
       } catch (e) {
         setError(e.message);
       } finally {
+        clearInterval(progressTimer);
+        setUploadProgress('');
         setSubmitting(false);
       }
       return;
@@ -245,7 +263,8 @@ function AddTransactionModal({ onClose, onSuccess, token }) {
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Failed to bulk generate SIP');
-        onSuccess(data);
+        // data = { message, transactions: [...] }
+        onSuccess({ _mode: 'bulk-sip', ...data });
       } catch (e) {
         setError(e.message);
       } finally {
@@ -272,7 +291,8 @@ function AddTransactionModal({ onClose, onSuccess, token }) {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to record transaction');
-      onSuccess(data);
+      // data = Transaction object with transactionRef
+      onSuccess({ _mode: 'single', ...data });
     } catch (e) {
       setError(e.message);
     } finally {
@@ -462,13 +482,24 @@ function AddTransactionModal({ onClose, onSuccess, token }) {
           </div>
         )}
 
-        <div className="modal-actions">
-          <button className="btn-cancel" onClick={onClose}>Cancel</button>
-          <motion.button className="btn-submit" onClick={submit} disabled={submitting}
-            whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}>
-            {submitting ? <RefreshCw size={14} className="spin" /> : <Plus size={14} />}
-            {submitting ? (mode === 'bulk-sip' ? 'Generating...' : mode === 'upload-cas' ? 'Uploading...' : 'Recording...') : (mode === 'bulk-sip' ? 'Import Historical SIP' : mode === 'upload-cas' ? 'Upload & Parse CAS' : 'Record Transaction')}
-          </motion.button>
+        <div className="modal-actions" style={{ flexDirection: 'column', gap: '8px' }}>
+          {uploadProgress && (
+            <div style={{
+              width: '100%', padding: '8px 14px', borderRadius: '8px',
+              background: 'rgba(0,208,156,0.08)', border: '1px solid rgba(0,208,156,0.2)',
+              fontSize: '13px', color: '#00D09C', textAlign: 'center', fontWeight: 500
+            }}>
+              {uploadProgress}
+            </div>
+          )}
+          <div style={{ display: 'flex', gap: '10px', width: '100%' }}>
+            <button className="btn-cancel" onClick={onClose}>Cancel</button>
+            <motion.button className="btn-submit" onClick={submit} disabled={submitting}
+              whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}>
+              {submitting ? <RefreshCw size={14} className="spin" /> : <Plus size={14} />}
+              {submitting ? (mode === 'bulk-sip' ? 'Generating...' : mode === 'upload-cas' ? 'Parsing PDF...' : 'Recording...') : (mode === 'bulk-sip' ? 'Import Historical SIP' : mode === 'upload-cas' ? 'Upload & Parse CAS' : 'Record Transaction')}
+            </motion.button>
+          </div>
         </div>
       </motion.div>
     </motion.div>
@@ -693,10 +724,19 @@ export default function TransactionsPage() {
           <AddTransactionModal
             onClose={() => setShowAdd(false)}
             token={getToken()}
-            onSuccess={(txn) => {
+            onSuccess={(result) => {
               setShowAdd(false);
-              showToast(`✅ Transaction recorded: ${txn.transactionRef}`);
               fetchTransactions();
+              // Show mode-appropriate success message
+              if (result._mode === 'upload-cas') {
+                showToast(`✅ CAS imported: ${result.totalTransactions} transactions across ${result.totalFolios} folio(s)`);
+              } else if (result._mode === 'bulk-sip') {
+                const count = result.transactions?.length ?? result.message?.match(/\d+/)?.[0] ?? '';
+                showToast(`✅ SIP history generated: ${count} entries`);
+              } else {
+                // single transaction — transactionRef is present
+                showToast(`✅ Transaction recorded: ${result.transactionRef || result.id}`);
+              }
             }}
           />
         )}
