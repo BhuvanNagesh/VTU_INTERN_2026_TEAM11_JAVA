@@ -1,0 +1,31 @@
+# Maven build output
+target/
+*.class
+*.jar
+*.war
+
+# Secrets — never commit these
+
+
+# APT generated
+/.apt_generated/
+/.apt_generated_tests/
+
+# IDE — IntelliJ
+.idea/
+*.iml
+*.iws
+
+# IDE — Eclipse / VS Code
+.classpath
+.project
+.settings/
+.vscode/
+
+# Logs
+*.log
+logs/
+
+# OS
+.DS_Store
+Thumbs.db

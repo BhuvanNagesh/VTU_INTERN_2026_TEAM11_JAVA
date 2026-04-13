@@ -210,35 +210,3 @@ SET
 FROM public.scheme_master sm
 WHERE t.scheme_amfi_code = sm.amfi_code
   AND (t.category IS NULL OR t.risk IS NULL);
-
-
--- ══════════════════════════════════════════════════════════════════════════════
--- FUND OVERLAP ANALYTICS — Stock-Level Holdings Table (M11 Integration)
--- Run AFTER existing schema. Hibernate will auto-create on startup,
--- but this SQL is provided for manual Supabase migration / documentation.
--- ══════════════════════════════════════════════════════════════════════════════
-CREATE TABLE IF NOT EXISTS public.fund_holdings (
-    id bigserial NOT NULL,
-    scheme_amfi_code character varying(20) NOT NULL,
-    stock_isin character varying(20),
-    stock_name character varying(300) NOT NULL,
-    sector character varying(100),
-    weight_pct double precision,
-    as_of_date date,
-    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
-
-    CONSTRAINT fund_holdings_pkey PRIMARY KEY (id)
-) TABLESPACE pg_default;
-
--- Index for fast lookup by scheme code (the primary query pattern)
-CREATE INDEX IF NOT EXISTS idx_fh_scheme ON public.fund_holdings (scheme_amfi_code);
-
--- Index for cross-portfolio stock name queries
-CREATE INDEX IF NOT EXISTS idx_fh_stock ON public.fund_holdings (stock_name);
-
--- ──────────────────────────────────────────────────────────────────────────────
--- NOTE: fund_holdings is populated ON DEMAND by FundHoldingsIngestionService
--- when a user views the Analytics → Overlap tab for the first time.
--- Data is derived from SEBI-mandated category allocation rules using real
--- NSE/BSE Nifty index constituents (not dummy data).
--- ──────────────────────────────────────────────────────────────────────────────

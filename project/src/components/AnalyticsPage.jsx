@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Activity, ShieldAlert, Network, RefreshCw, AlertTriangle, Zap, Target, BookOpen, BarChart2, CheckCircle2 } from 'lucide-react';
+import { Activity, ShieldAlert, Network, RefreshCw, AlertTriangle, Zap, Target, BookOpen, BarChart2, CheckCircle2, ChevronDown, ChevronRight, Layers, TrendingDown, AlertCircle } from 'lucide-react';
 import { ResponsiveContainer, Radar, RadarChart, PolarGrid, PolarAngleAxis } from 'recharts';
 import { useAuth } from '../context/AuthContext';
 import './AnalyticsPage.css';
@@ -358,66 +358,286 @@ export default function AnalyticsPage() {
   };
 
   // ─── Overlap Tab ─────────────────────────────────────────────────────────────
+  const [expandedRow, setExpandedRow] = useState(null);
+
   const renderOverlapTab = () => {
     if (!data.overlap) return null;
-    const { links, nodes, averageCategorySimilarityPct, disclaimer } = data.overlap;
-    const avgPct = averageCategorySimilarityPct ?? 0;
-    const overlapColor = avgPct > 35 ? '#FF4D4D' : avgPct > 20 ? '#FFB247' : '#00D09C';
+    const {
+      links = [],
+      nodes = [],
+      averageOverlapPct = 0,
+      averageWeightedOverlapPct = 0,
+      highOverlapStocks = [],
+      consolidationSuggestions = [],
+      portfolioDiversificationInsight = '',
+      disclaimer,
+    } = data.overlap;
+
+    const avgPct = averageOverlapPct ?? 0;
+    const avgW   = averageWeightedOverlapPct ?? 0;
+    const overlapColor   = avgPct > 50 ? '#FF4D4D' : avgPct > 25 ? '#FFB247' : '#00D09C';
+    const insightIcon    = avgPct > 50 ? '⚠️' : avgPct > 25 ? '⚡' : '✅';
+    const sortedLinks    = [...links].sort((a, b) => b.overlapPct - a.overlapPct);
+    const highCount      = consolidationSuggestions.length;
+
+    const riskColor = (r) => r === 'HIGH' ? '#FF4D4D' : r === 'MODERATE' ? '#FFB247' : '#00D09C';
+    const riskBg    = (r) => r === 'HIGH' ? 'rgba(255,77,77,0.12)'  : r === 'MODERATE' ? 'rgba(255,178,71,0.12)' : 'rgba(0,208,156,0.12)';
+    const shortenName = (n) => n ? (n.length > 45 ? n.substring(0, 43) + '…' : n) : '';
+
     return (
-      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
-        <div className="intel-card glassmorphism" style={{ marginBottom: '24px' }}>
-          <div style={{ display: 'flex', gap: '24px', alignItems: 'flex-start' }}>
-            <div style={{ flex: 1 }}>
-              <h3 className="card-title"><Network size={16} color="#00F298" /> Portfolio Category Similarity</h3>
-              <p style={{ fontSize: '13px', color: '#A0A0B0', lineHeight: 1.6 }}>
-                Measures how similar your funds are by SEBI category. Funds in the same category often share top holdings.
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} key="overlap">
+
+        {/* ── Portfolio Insight Banner ───────────────────────────────────── */}
+        <div className="overlap-insight-banner" style={{
+          background: avgPct > 50
+            ? 'linear-gradient(135deg, rgba(255,77,77,0.1) 0%, rgba(255,77,77,0.04) 100%)'
+            : avgPct > 25
+              ? 'linear-gradient(135deg, rgba(255,178,71,0.1) 0%, rgba(255,178,71,0.04) 100%)'
+              : 'linear-gradient(135deg, rgba(0,208,156,0.1) 0%, rgba(0,208,156,0.04) 100%)',
+          border: `1px solid ${overlapColor}30`,
+          borderRadius: '16px', padding: '20px 24px', marginBottom: '20px',
+          display: 'flex', alignItems: 'flex-start', gap: '16px',
+        }}>
+          <div style={{ fontSize: '28px', lineHeight: 1 }}>{insightIcon}</div>
+          <div style={{ flex: 1 }}>
+            <p style={{ color: 'var(--text-primary)', fontSize: '14px', lineHeight: 1.6, margin: 0 }}>
+              {portfolioDiversificationInsight || 'Analysing your portfolio overlap…'}
+            </p>
+            {disclaimer && (
+              <p style={{ fontSize: '11px', color: '#A0A0B0', marginTop: '8px', margin: '8px 0 0' }}>
+                ℹ️ {disclaimer}
               </p>
-              {disclaimer && (
-                <p style={{ fontSize: '11px', color: '#FFB247', marginTop: '8px', padding: '8px 12px',
-                  background: 'rgba(255,178,71,0.08)', borderRadius: '8px', border: '1px solid rgba(255,178,71,0.2)' }}>
-                  ⚠️ {disclaimer}
-                </p>
-              )}
-            </div>
-            <div style={{ textAlign: 'center', padding: '20px', background: 'rgba(0,0,0,0.2)', borderRadius: '12px', minWidth: '100px' }}>
-              <div style={{ fontSize: '36px', fontWeight: 800, color: overlapColor }}>{avgPct}%</div>
-              <div style={{ fontSize: '11px', textTransform: 'uppercase', color: '#A0A0B0', marginTop: '4px' }}>Avg Similarity</div>
-              <div style={{ fontSize: '11px', color: overlapColor, marginTop: '4px', fontWeight: 600 }}>
-                {avgPct > 35 ? '⚠️ High' : avgPct > 20 ? '⚡ Moderate' : '✅ Low'}
-              </div>
-            </div>
+            )}
           </div>
         </div>
-        <div className="intel-card glassmorphism">
-          <h3 className="card-title">Pairwise Category Similarity Matrix</h3>
-          {links?.length > 0 ? (
-            <table className="sip-comparison-table">
-              <thead><tr><th>Fund A</th><th>Fund B</th><th>Category Similarity</th><th>Level</th></tr></thead>
-              <tbody>
-                {links.sort((a, b) => b.categorySimilarityPct - a.categorySimilarityPct).map((link, i) => {
-                  const nameA = nodes?.find(n => n.id === link.source)?.name || link.source;
-                  const nameB = nodes?.find(n => n.id === link.target)?.name || link.target;
-                  const pct = link.categorySimilarityPct;
-                  const col = pct > 35 ? '#FF4D4D' : pct > 20 ? '#FFB247' : '#00D09C';
-                  return (
-                    <tr key={i}>
-                      <td style={{ fontSize: '13px', maxWidth: '200px' }}>{nameA}</td>
-                      <td style={{ fontSize: '13px', maxWidth: '200px' }}>{nameB}</td>
-                      <td style={{ fontWeight: 700, color: col }}>{pct}%</td>
-                      <td style={{ color: col, fontWeight: 600 }}>
-                        {pct > 35 ? 'High' : pct > 20 ? 'Moderate' : 'Low'}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+
+        {/* ── Summary Stats Row ─────────────────────────────────────────── */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '16px', marginBottom: '20px' }}>
+          {[
+            { label: 'Avg Stock Overlap',    value: `${avgPct}%`,  color: overlapColor,  icon: <Network size={16} /> },
+            { label: 'Avg Weighted Overlap',  value: `${avgW}%`,   color: '#8C52FF',     icon: <Layers size={16} /> },
+            { label: 'Fund Pairs Analysed',   value: links.length, color: '#00D09C',     icon: <BarChart2 size={16} /> },
+            { label: 'Consolidation Alerts',  value: highCount,    color: highCount > 0 ? '#FF4D4D' : '#00D09C', icon: <AlertCircle size={16} /> },
+          ].map((s, i) => (
+            <div key={i} className="intel-card glassmorphism" style={{ padding: '16px 20px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: s.color, marginBottom: '8px', fontSize: '12px', fontWeight: 600 }}>
+                {s.icon} {s.label}
+              </div>
+              <div style={{ fontSize: '28px', fontWeight: 800, color: s.color }}>{s.value}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* ── Pairwise Overlap Matrix ───────────────────────────────────── */}
+        <div className="intel-card glassmorphism" style={{ marginBottom: '20px', padding: 0, overflow: 'hidden' }}>
+          <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid var(--border-subtle)' }}>
+            <h3 className="card-title" style={{ margin: 0 }}>
+              <Network size={16} color="#00F298" /> Pairwise Stock Overlap Matrix
+              <span style={{ fontSize: '11px', color: '#A0A0B0', fontWeight: 400, marginLeft: 8 }}>
+                Click a row to see common stocks
+              </span>
+            </h3>
+          </div>
+
+          {sortedLinks.length > 0 ? (
+            <div style={{ overflowX: 'auto' }}>
+              <table className="sip-comparison-table" style={{ margin: 0 }}>
+                <thead>
+                  <tr>
+                    <th style={{ width: '28px' }}></th>
+                    <th>Fund A</th>
+                    <th>Fund B</th>
+                    <th>Stock Overlap</th>
+                    <th>Weighted</th>
+                    <th>Risk</th>
+                    <th>Method</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {sortedLinks.map((link, i) => {
+                    const nameA   = link.sourceName || nodes?.find(n => n.id === link.source)?.name || link.source;
+                    const nameB   = link.targetName || nodes?.find(n => n.id === link.target)?.name || link.target;
+                    const pct     = link.overlapPct ?? 0;
+                    const wpct    = link.weightedOverlapPct ?? 0;
+                    const risk    = link.riskLevel || (pct > 60 ? 'HIGH' : pct > 30 ? 'MODERATE' : 'LOW');
+                    const isReal  = link.isRealOverlap;
+                    const stocks  = link.commonStocks || [];
+                    const rowKey  = `${link.source}-${link.target}`;
+                    const isOpen  = expandedRow === rowKey;
+
+                    return (
+                      <>
+                        <tr
+                          key={`row-${i}`}
+                          onClick={() => setExpandedRow(isOpen ? null : rowKey)}
+                          className="overlap-matrix-row"
+                          style={{ cursor: stocks.length > 0 ? 'pointer' : 'default' }}
+                        >
+                          <td style={{ textAlign: 'center', color: '#A0A0B0' }}>
+                            {stocks.length > 0
+                              ? (isOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />)
+                              : null}
+                          </td>
+                          <td style={{ fontSize: '13px', maxWidth: '220px' }}>{shortenName(nameA)}</td>
+                          <td style={{ fontSize: '13px', maxWidth: '220px' }}>{shortenName(nameB)}</td>
+                          <td>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <div className="overlap-bar-track">
+                                <div className="overlap-bar-fill" style={{ width: `${Math.min(pct, 100)}%`, background: riskColor(risk) }} />
+                              </div>
+                              <span style={{ fontWeight: 700, color: riskColor(risk), minWidth: '40px' }}>{pct}%</span>
+                            </div>
+                          </td>
+                          <td style={{ fontWeight: 600, color: '#8C52FF' }}>{wpct}%</td>
+                          <td>
+                            <span className="overlap-risk-badge" style={{ background: riskBg(risk), color: riskColor(risk), border: `1px solid ${riskColor(risk)}40` }}>
+                              {risk}
+                            </span>
+                          </td>
+                          <td>
+                            <span style={{ fontSize: '10px', color: isReal ? '#00D09C' : '#A0A0B0', fontWeight: 600 }}>
+                              {isReal ? '📊 Real' : '📌 Est.'}
+                            </span>
+                          </td>
+                        </tr>
+
+                        {/* Expanded Row — common stocks + insight */}
+                        {isOpen && stocks.length > 0 && (
+                          <tr key={`expand-${i}`}>
+                            <td colSpan={7} style={{ padding: 0, background: 'rgba(0,0,0,0.25)' }}>
+                              <motion.div
+                                initial={{ height: 0, opacity: 0 }}
+                                animate={{ height: 'auto', opacity: 1 }}
+                                exit={{ height: 0, opacity: 0 }}
+                                style={{ padding: '16px 24px' }}
+                              >
+                                {link.insight && (
+                                  <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '12px', lineHeight: 1.5 }}>
+                                    {link.insight}
+                                  </p>
+                                )}
+                                <div style={{ fontSize: '11px', color: '#A0A0B0', marginBottom: '8px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                                  {stocks.length} Common Stock{stocks.length !== 1 ? 's' : ''}
+                                </div>
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                                  {stocks.map((s, si) => (
+                                    <span key={si} className="stock-pill" style={{ background: `${riskColor(risk)}15`, border: `1px solid ${riskColor(risk)}40`, color: riskColor(risk) }}>
+                                      {s}
+                                    </span>
+                                  ))}
+                                </div>
+                              </motion.div>
+                            </td>
+                          </tr>
+                        )}
+                      </>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           ) : (
-            <div style={{ textAlign: 'center', padding: '40px', color: '#A0A0B0' }}>
-              No overlapping funds detected. Add more equity funds to see overlap analysis.
+            <div style={{ textAlign: 'center', padding: '48px', color: '#A0A0B0' }}>
+              <Network size={36} style={{ margin: '0 auto 12px', opacity: 0.3 }} />
+              <p>Add at least 2 funds in your portfolio to see the overlap matrix.</p>
             </div>
           )}
         </div>
+
+        {/* ── High Overlap Stocks ───────────────────────────────────────── */}
+        {highOverlapStocks.length > 0 && (
+          <div className="intel-card glassmorphism" style={{ marginBottom: '20px' }}>
+            <h3 className="card-title">
+              <TrendingDown size={16} color="#FFB247" />
+              Stocks Held in Multiple Funds
+              <span style={{ fontSize: '11px', color: '#FFB247', background: 'rgba(255,178,71,0.12)', padding: '2px 8px', borderRadius: '10px', marginLeft: '8px' }}>
+                {highOverlapStocks.length} stocks
+              </span>
+            </h3>
+            <p style={{ fontSize: '12px', color: '#A0A0B0', marginBottom: '16px', marginTop: '-8px' }}>
+              These stocks appear in more than one fund in your portfolio, concentrating your exposure.
+            </p>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '10px' }}>
+              {highOverlapStocks.map((stock, i) => {
+                const fundCount = stock.fundCount || 0;
+                const c = fundCount >= 4 ? '#FF4D4D' : fundCount >= 3 ? '#FFB247' : '#8C52FF';
+                return (
+                  <div key={i} className="high-overlap-stock-card" style={{ borderColor: `${c}25` }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                      <div>
+                        <div style={{ fontWeight: 700, fontSize: '13px', color: 'var(--text-primary)' }}>{stock.stockName}</div>
+                        <div style={{ fontSize: '11px', color: '#A0A0B0', marginTop: '2px' }}>{stock.sector}</div>
+                      </div>
+                      <div style={{ textAlign: 'right' }}>
+                        <div style={{ fontSize: '18px', fontWeight: 800, color: c }}>{fundCount}</div>
+                        <div style={{ fontSize: '10px', color: '#A0A0B0' }}>funds</div>
+                      </div>
+                    </div>
+                    <div style={{ marginTop: '8px', display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                      {(stock.funds || []).slice(0, 3).map((code, ci) => {
+                        const fn = nodes.find(n => n.id === code)?.name || code;
+                        return (
+                          <span key={ci} style={{ fontSize: '10px', background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '4px', padding: '2px 6px', color: '#A0A0B0' }}>
+                            {fn.length > 25 ? fn.substring(0, 24) + '…' : fn}
+                          </span>
+                        );
+                      })}
+                      {(stock.funds || []).length > 3 && (
+                        <span style={{ fontSize: '10px', color: '#A0A0B0' }}>+{stock.funds.length - 3} more</span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* ── Consolidation Suggestions ────────────────────────────────── */}
+        {consolidationSuggestions.length > 0 && (
+          <div className="intel-card glassmorphism">
+            <h3 className="card-title">
+              <AlertCircle size={16} color="#FF4D4D" />
+              Consolidation Suggestions
+              <span style={{ fontSize: '11px', color: '#FF4D4D', background: 'rgba(255,77,77,0.12)', padding: '2px 8px', borderRadius: '10px', marginLeft: '8px' }}>
+                {consolidationSuggestions.length} suggestion{consolidationSuggestions.length !== 1 ? 's' : ''}
+              </span>
+            </h3>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              {consolidationSuggestions.map((s, i) => {
+                const sev = s.severity;
+                const sc  = sev === 'HIGH' ? '#FF4D4D' : '#FFB247';
+                return (
+                  <div key={i} className="consolidation-card" style={{ borderLeft: `3px solid ${sc}`, background: `${sc}08` }}>
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+                      <div style={{ minWidth: '60px', marginTop: '2px' }}>
+                        <span className="overlap-risk-badge" style={{ background: `${sc}18`, color: sc, border: `1px solid ${sc}40`, fontSize: '9px' }}>
+                          {sev}
+                        </span>
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        <p style={{ fontSize: '13px', color: 'var(--text-primary)', lineHeight: 1.6, margin: 0 }}>{s.message}</p>
+                        <div style={{ display: 'flex', gap: '12px', marginTop: '8px', fontSize: '11px', color: '#A0A0B0' }}>
+                          <span>📊 Overlap: <b style={{ color: sc }}>{s.overlapPct}%</b></span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Empty state when no suggestions but have data */}
+        {consolidationSuggestions.length === 0 && links.length > 0 && (
+          <div className="intel-card glassmorphism" style={{ textAlign: 'center', padding: '28px' }}>
+            <CheckCircle2 size={28} color="#00D09C" style={{ margin: '0 auto 10px' }} />
+            <p style={{ color: '#00D09C', fontWeight: 700, marginBottom: '4px' }}>No Consolidation Needed</p>
+            <p style={{ color: '#A0A0B0', fontSize: '13px' }}>Your funds are well-diversified with no high-overlap pairs requiring action.</p>
+          </div>
+        )}
+
       </motion.div>
     );
   };
