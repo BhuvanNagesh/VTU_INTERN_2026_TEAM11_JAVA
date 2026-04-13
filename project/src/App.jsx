@@ -15,6 +15,8 @@ import DashboardPage from './components/DashboardPage';
 import TransactionsPage from './components/TransactionsPage';
 import ProfilePage from './components/ProfilePage';
 import AnalyticsPage from './components/AnalyticsPage';
+// 1. Added GoalsPage import
+import GoalsPage from './components/GoalsPage'; 
 import './App.css';
 
 // Landing page (existing)
@@ -81,6 +83,10 @@ function AppContent() {
           <Route path="/dashboard" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
           <Route path="/transactions" element={<ProtectedRoute><TransactionsPage /></ProtectedRoute>} />
           <Route path="/analytics" element={<ProtectedRoute><AnalyticsPage /></ProtectedRoute>} />
+          
+          {/* 2. Added Protected Goals Route */}
+          <Route path="/goals" element={<ProtectedRoute><GoalsPage /></ProtectedRoute>} />
+          
           <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
 
           {/* Catch-all */}

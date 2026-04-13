@@ -1,18 +1,19 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { TrendingUp, Bell, Search, Menu, X, User, LogOut, LayoutDashboard, List, UserCircle, Activity, Sun, Moon } from 'lucide-react';
+// Added Target icon to imports
+import { TrendingUp, Bell, Search, Menu, X, User, LogOut, LayoutDashboard, List, UserCircle, Activity, Target, Sun, Moon } from 'lucide-react';
 import './Navbar.css';
 
 const tickerData = [
   { symbol: 'SENSEX', value: '73,847', change: '+0.82%', up: true },
   { symbol: 'NIFTY 50', value: '22,475', change: '+0.67%', up: true },
   { symbol: 'NIFTY BANK', value: '48,023', change: '-0.21%', up: false },
-  { symbol: 'HDFC MF NAV', value: '₹842.34', change: '+1.2%', up: true },
-  { symbol: 'SBI Bluechip NAV', value: '₹78.45', change: '+0.54%', up: true },
-  { symbol: 'MIRAE MF NAV', value: '₹105.20', change: '+0.88%', up: true },
-  { symbol: 'AXIS ELSS NAV', value: '₹68.92', change: '-0.31%', up: false },
-  { symbol: 'GOLD ETF', value: '₹72,340', change: '+0.31%', up: true },
+  { symbol: 'HDFC MF NAV', value: '842.34', change: '+1.2%', up: true },
+  { symbol: 'SBI Bluechip NAV', value: '78.45', change: '+0.54%', up: true },
+  { symbol: 'MIRAE MF NAV', value: '105.20', change: '+0.88%', up: true },
+  { symbol: 'AXIS ELSS NAV', value: '68.92', change: '-0.31%', up: false },
+  { symbol: 'GOLD ETF', value: '72,340', change: '+0.31%', up: true },
   { symbol: 'NIFTY 50 Index', value: '18,653', change: '+0.45%', up: true },
   { symbol: 'SENSEX TRI', value: '73,210', change: '+0.60%', up: true },
 ];
@@ -23,7 +24,6 @@ const navItems = [
   { label: 'Features' }
 ];
 
-// We now accept the user and auth functions passed down from App.jsx
 const Navbar = ({ scrollY, user, onSignIn, onSignUp, onSignOut, theme, onToggleTheme }) => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const isScrolled = scrollY > 50;
@@ -82,6 +82,11 @@ const Navbar = ({ scrollY, user, onSignIn, onSignUp, onSignOut, theme, onToggleT
                   <Activity size={15} />
                   Analytics
                 </Link>
+                {/* Added Goals Link */}
+                <Link to="/goals" className="nav-app-link">
+                  <Target size={15} />
+                  Goals
+                </Link>
                 <Link to="/profile" className="nav-app-link">
                   <UserCircle size={15} />
                   Profile
@@ -125,7 +130,6 @@ const Navbar = ({ scrollY, user, onSignIn, onSignUp, onSignOut, theme, onToggleT
                 </AnimatePresence>
               </motion.button>
 
-              {/* Conditional Rendering: Show Profile if logged in, otherwise show Auth buttons */}
               {user ? (
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-primary)', fontSize: '14px', fontWeight: '500' }}>
@@ -195,6 +199,10 @@ const Navbar = ({ scrollY, user, onSignIn, onSignUp, onSignOut, theme, onToggleT
                   </Link>
                   <Link to="/analytics" className="mobile-nav-item" onClick={() => setMobileOpen(false)}>
                     <Activity size={15} /> Analytics
+                  </Link>
+                  {/* Added Goals Mobile Link */}
+                  <Link to="/goals" className="mobile-nav-item" onClick={() => setMobileOpen(false)}>
+                    <Target size={15} /> Goals
                   </Link>
                 </>
               ) : (

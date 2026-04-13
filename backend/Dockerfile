@@ -24,6 +24,6 @@ COPY --from=build /app/target/wealthwise-backend-0.0.1-SNAPSHOT.jar app.jar
 # Expose the port the app runs on
 EXPOSE 8080
 
-# Run the jar — activates the 'prod' Spring profile so application-prod.properties
+# Run the jar — activates the 'prod' Spring profile so application.properties
 # is loaded and all secrets are read from Render's environment variables
 ENTRYPOINT ["java", "-Dspring.profiles.active=prod", "-jar", "app.jar"]

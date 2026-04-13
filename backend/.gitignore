@@ -3,7 +3,7 @@ target/
 *.class
 *.jar
 *.war
-
+application.properties
 # Secrets — never commit these
 
 
