@@ -17,13 +17,14 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
-import java.util.logging.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import java.util.regex.*;
 
 @Service
 public class CasPdfParserService {
 
-    private static final Logger log = Logger.getLogger(CasPdfParserService.class.getName());
+    private static final Logger log = LoggerFactory.getLogger(CasPdfParserService.class);
 
     @Autowired private SchemeRepository schemeRepo;
     @Autowired private TransactionRepository txRepo;
@@ -94,15 +95,22 @@ public class CasPdfParserService {
     // ── Public API ──────────────────────────────────────────────────────────
 
     public Map<String, Object> parseCas(MultipartFile file, Long userId) throws IOException {
+        log.info("[CAS] ===== CAS PDF Upload Started =====");
+        log.info("[CAS] File     : {}", file.getOriginalFilename());
+        log.info("[CAS] Size     : {} KB", file.getSize() / 1024);
+        log.info("[CAS] UserId   : {}", userId);
+
         CasUploadLog uploadLog = new CasUploadLog();
         uploadLog.setUserId(userId);
         uploadLog.setFileName(file.getOriginalFilename());
         uploadLog.setStatus(CasUploadLog.Status.PROCESSING);
         uploadLog = logRepo.save(uploadLog);
+        log.info("[CAS] Upload log created with ID: {}", uploadLog.getId());
 
         try {
             return processCasTransactionally(file, userId, uploadLog);
         } catch (Exception e) {
+            log.error("[CAS] FAILED — {}: {}", e.getClass().getSimpleName(), e.getMessage());
             uploadLog.setStatus(CasUploadLog.Status.FAILED);
             uploadLog.setErrorMessage(e.getMessage());
             logRepo.save(uploadLog);
@@ -114,22 +122,47 @@ public class CasPdfParserService {
     public Map<String, Object> processCasTransactionally(
             MultipartFile file, Long userId, CasUploadLog uploadLog) throws IOException {
 
+        log.info("[CAS] Step 1/4 — Extracting text from PDF...");
         byte[] pdfBytes = file.getBytes();
         try (PDDocument doc = PDDocument.load(pdfBytes)) {
+            log.info("[CAS] PDF pages    : {}", doc.getNumberOfPages());
             PDFTextStripper stripper = new PDFTextStripper();
             String fullText = stripper.getText(doc);
+            log.info("[CAS] Extracted    : {} characters of text", fullText.length());
 
+            log.info("[CAS] Step 2/4 — Splitting into folio blocks...");
             List<FolioBlock> folios = splitIntoFolios(fullText);
-            int totalTx = 0;
+            log.info("[CAS] Folios found : {}", folios.size());
 
-            for (FolioBlock folio : folios) {
-                totalTx += saveTransactions(folio, userId);
+            // Log each folio summary before saving
+            for (int i = 0; i < folios.size(); i++) {
+                FolioBlock fb = folios.get(i);
+                log.info("[CAS]   Folio [{}/{}] #{} | Scheme: {} | AMFI: {} | Txns: {}",
+                    i + 1, folios.size(),
+                    fb.folioNumber,
+                    fb.schemeName != null ? fb.schemeName : "(unmatched — " + fb.pdfSchemeName + ")",
+                    fb.amfiCode,
+                    fb.transactions.size());
             }
 
+            log.info("[CAS] Step 3/4 — Saving transactions to database...");
+            int totalTx = 0;
+            for (FolioBlock folio : folios) {
+                int saved = saveTransactions(folio, userId);
+                log.info("[CAS]   Folio #{} → {} transactions saved", folio.folioNumber, saved);
+                totalTx += saved;
+            }
+
+            log.info("[CAS] Step 4/4 — Finalising upload log...");
             uploadLog.setStatus(CasUploadLog.Status.SUCCESS);
             uploadLog.setTotalFolios(folios.size());
             uploadLog.setTotalTransactions(totalTx);
             logRepo.save(uploadLog);
+
+            log.info("[CAS] ===== Import COMPLETE =====");
+            log.info("[CAS] Total folios      : {}", folios.size());
+            log.info("[CAS] Total transactions: {}", totalTx);
+            log.info("[CAS] Upload log ID     : {}", uploadLog.getId());
 
             Map<String, Object> result = new LinkedHashMap<>();
             result.put("status",            "SUCCESS");
@@ -278,7 +311,7 @@ public class CasPdfParserService {
                 try {
                     schemeRepo.save(synthetic);
                 } catch (Exception e) {
-                    log.warning("[CAS] Could not pre-save synthetic scheme " + folio.amfiCode + ": " + e.getMessage());
+                    log.warn("[CAS] Could not pre-save synthetic scheme {}: {}", folio.amfiCode, e.getMessage());
                 }
             } else {
                 // If it already exists (e.g. re-upload), still apply latest derived data
@@ -498,12 +531,20 @@ public class CasPdfParserService {
     @Transactional(propagation = Propagation.REQUIRED)
     int saveTransactions(FolioBlock folio, Long userId) {
         String amfiCode = folio.amfiCode;
-        if (amfiCode == null) return 0;
-        
+        if (amfiCode == null) {
+            log.warn("[CAS] Skipping folio #{} — amfiCode is null (scheme not matched)", folio.folioNumber);
+            return 0;
+        }
+
+        log.debug("[CAS] saveTransactions() folio=#{} amfi={} txns={}",
+            folio.folioNumber, amfiCode, folio.transactions.size());
+
         // Remove old CAS transactions/lots if re-uploading same folio
         List<Transaction> existing = txRepo.findByUserIdAndSchemeAmfiCodeOrderByTransactionDateAsc(userId, amfiCode)
            .stream().filter(t -> folio.folioNumber.equals(t.getFolioNumber()) && "CAS_IMPORT".equals(t.getSource())).toList();
         if (!existing.isEmpty()) {
+            log.info("[CAS] Re-upload detected — removing {} old CAS transactions for folio #{}",
+                existing.size(), folio.folioNumber);
             for (Transaction t : existing) {
                 lotRepo.deleteByTransactionId(t.getId());
                 txRepo.delete(t);
@@ -528,14 +569,19 @@ public class CasPdfParserService {
             if (latestKnownNav != null) {
                 scheme.setLastNav(latestKnownNav);
                 try { schemeRepo.save(scheme); } catch (Exception e) {
-                    log.warning("[CAS] Could not update lastNav for " + amfiCode + ": " + e.getMessage());
+                    log.warn("[CAS] Could not update lastNav for {}: {}", amfiCode, e.getMessage());
                 }
             }
         }
 
         int count = 0;
+        log.info("[CAS] Saving {} transactions for folio #{} (scheme: {})",
+            folio.transactions.size(), folio.folioNumber,
+            folio.schemeName != null ? folio.schemeName : amfiCode);
         for (TxRow row : folio.transactions) {
             String type = detectType(row.description);
+            log.debug("[CAS]   #{} {} | {} | amt={} units={} nav={}",
+                count + 1, row.date, type, row.amount, row.units, row.nav);
             boolean isPurchase = type.startsWith("PURCHASE") || type.startsWith("SWITCH_IN") || type.startsWith("DIVIDEND") || type.startsWith("STP_IN");
             boolean isRedemption = type.startsWith("REDEMPT") || type.startsWith("SWITCH_OUT") || type.startsWith("SWP") || type.startsWith("STP_OUT");
 
@@ -581,6 +627,10 @@ public class CasPdfParserService {
             }
             count++;
         }
+        if (folio.transactions.size() > 0 && count == 0) {
+            log.warn("[CAS] WARNING: {} transactions were parsed but 0 were saved for folio #{}. Check for DB errors above.",
+                folio.transactions.size(), folio.folioNumber);
+        }
         return count;
     }
     
@@ -603,7 +653,10 @@ public class CasPdfParserService {
 
 
     private String detectType(String description) {
-        if (description == null) return "PURCHASE_LUMPSUM";
+        if (description == null) {
+            log.debug("[CAS] detectType: null description → defaulting to PURCHASE_LUMPSUM");
+            return "PURCHASE_LUMPSUM";
+        }
         String upper = description.toUpperCase();
 
         if (upper.contains("SIP") || upper.contains("SYSTEMATIC")) return "PURCHASE_SIP";

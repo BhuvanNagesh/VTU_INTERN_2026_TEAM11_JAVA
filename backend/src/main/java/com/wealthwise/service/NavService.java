@@ -18,7 +18,8 @@ import java.net.URL;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
-import java.util.logging.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * On-demand NAV Service
@@ -34,7 +35,7 @@ import java.util.logging.Logger;
 @Service
 public class NavService {
 
-    private static final Logger log = Logger.getLogger(NavService.class.getName());
+    private static final Logger log = LoggerFactory.getLogger(NavService.class);
     private static final String MFAPI_BASE = "https://api.mfapi.in/mf/";
     private static final DateTimeFormatter MFAPI_DATE = DateTimeFormatter.ofPattern("dd-MM-yyyy");
     private static final DateTimeFormatter AMFI_DATE = DateTimeFormatter.ofPattern("dd-MMM-yyyy");
@@ -66,7 +67,7 @@ public class NavService {
                 );
             }
         } catch (Exception e) {
-            log.warning("[NAV] mfapi.in failed for " + amfiCode + ": " + e.getMessage());
+            log.warn("[NAV] mfapi.in failed for {}: {}", amfiCode, e.getMessage());
         }
 
         // Fallback to scheme_master
@@ -104,7 +105,7 @@ public class NavService {
                             schemeRepo.save(s);
                         }
                     } catch (Exception e) {
-                        log.warning("[NAV] Could not update scheme_master for " + amfiCode);
+            log.warn("[NAV] Could not update scheme_master for {}", amfiCode);
                     }
                 });
                 return Map.of(
@@ -115,7 +116,7 @@ public class NavService {
                 );
             }
         } catch (Exception e) {
-            log.warning("[NAV] Refresh failed for " + amfiCode + ": " + e.getMessage());
+            log.warn("[NAV] Refresh failed for {}: {}", amfiCode, e.getMessage());
         }
         return getLatestNav(amfiCode);
     }
@@ -167,12 +168,12 @@ public class NavService {
                 return data;
             }
         } catch (Exception e) {
-            log.warning("[NAV] History fetch failed for " + amfiCode + ": " + e.getMessage());
+            log.warn("[NAV] History fetch failed for {}: {}", amfiCode, e.getMessage());
             // Fall through to DB fallback even if stale
             if (navHistoryRepo.existsByAmfiCode(amfiCode)) {
                 List<NavHistory> dbRows = navHistoryRepo.findByAmfiCodeOrderByNavDateDesc(amfiCode);
                 if (!dbRows.isEmpty()) {
-                    log.warning("[NAV] Using stale DB data for " + amfiCode + " as fallback");
+            log.warn("[NAV] Using stale DB data for {} as fallback", amfiCode);
                     return convertDbRowsToApiFormat(dbRows);
                 }
             }
@@ -284,7 +285,7 @@ public class NavService {
                         }
                     }
                 } catch (Exception e) {
-                    log.warning("[NAV] Re-enrich failed for " + amfiCode + ": " + e.getMessage());
+            log.warn("[NAV] Re-enrich failed for {}: {}", amfiCode, e.getMessage());
                 }
             }
             return s;
@@ -318,7 +319,7 @@ public class NavService {
                 return schemeRepo.save(s);
             }
         } catch (Exception e) {
-            log.warning("[NAV] ensureSchemeExists failed for " + amfiCode + ": " + e.getMessage());
+            log.warn("[NAV] ensureSchemeExists failed for {}: {}", amfiCode, e.getMessage());
         }
         // Minimal fallback
         Scheme s = new Scheme();

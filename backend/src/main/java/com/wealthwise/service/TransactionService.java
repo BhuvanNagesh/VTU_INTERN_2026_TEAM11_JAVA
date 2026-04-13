@@ -8,8 +8,6 @@ import com.wealthwise.repository.InvestmentLotRepository;
 import com.wealthwise.repository.SchemeRepository;
 import com.wealthwise.repository.TransactionRepository;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -19,12 +17,13 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
-import java.util.logging.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @Service
 public class TransactionService {
 
-    private static final Logger log = Logger.getLogger(TransactionService.class.getName());
+    private static final Logger log = LoggerFactory.getLogger(TransactionService.class);
 
     // Stamp duty rate for mutual fund purchases (0.005%)
     private static final BigDecimal STAMP_DUTY_RATE = new BigDecimal("0.00005");
@@ -212,7 +211,7 @@ public class TransactionService {
                 createLot(saved, scheme, folio, units, nav, currentAmount);
                 created.add(saved);
             } else {
-                log.warning("[SIP GENERATOR] Skipping " + current + " for " + req.getSchemeAmfiCode() + " - NAV missing.");
+                log.warn("[SIP GENERATOR] Skipping {} for {} - NAV missing.", current, req.getSchemeAmfiCode());
             }
 
             // Step forward exactly 1 month

@@ -12,12 +12,13 @@ import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
-import java.util.logging.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @Service
 public class ReturnsService {
 
-    private static final Logger log = Logger.getLogger(ReturnsService.class.getName());
+    private static final Logger log = LoggerFactory.getLogger(ReturnsService.class);
     private static final BigDecimal HUNDRED = BigDecimal.valueOf(100);
     private static final double XIRR_TOLERANCE = 1e-7;
     private static final int XIRR_MAX_ITERATIONS = 1000;
@@ -317,7 +318,7 @@ public class ReturnsService {
                 }
                 navHistories.put(code, navMap);
             } catch (Exception e) {
-                log.warning("[TIMELINE] NAV fetch failed for " + code + ": " + e.getMessage());
+                log.warn("[TIMELINE] NAV fetch failed for {}: {}", code, e.getMessage());
                 navHistories.put(code, new HashMap<>());
             }
         }
@@ -348,6 +349,9 @@ public class ReturnsService {
         // ── 5. Walk month by month ─────────────────────────────────────────────
         List<Map<String, Object>> timeline = new ArrayList<>();
         LocalDate cursor = windowStart;
+        // Track the last known real portfolio value to carry forward when NAV data is missing.
+        // Using invested-amount as fallback creates a false flat-then-spike chart.
+        BigDecimal lastKnownPortfolioValue = BigDecimal.ZERO;
 
         while (!cursor.isAfter(now)) {
             LocalDate nextMonth = cursor.plusMonths(1);
@@ -366,19 +370,29 @@ public class ReturnsService {
             LocalDate monthEnd = cursor.withDayOfMonth(cursor.lengthOfMonth());
             BigDecimal portfolioValue = computePortfolioValue(unitsHeld, navHistories, monthEnd);
 
-            // Fallback: if NAV data not yet available, use invested as floor
-            if (portfolioValue.compareTo(BigDecimal.ZERO) == 0
-                    && cumulativeInvested.compareTo(BigDecimal.ZERO) > 0) {
+            if (portfolioValue.compareTo(BigDecimal.ZERO) > 0) {
+                // Real NAV data available — use it and update carry-forward
+                lastKnownPortfolioValue = portfolioValue;
+            } else if (lastKnownPortfolioValue.compareTo(BigDecimal.ZERO) > 0) {
+                // NAV missing for this month — carry forward the last real value
+                // This is far more accurate than substituting invested amount,
+                // which falsely shows portfolio stagnating and then spiking.
+                portfolioValue = lastKnownPortfolioValue;
+            } else if (cumulativeInvested.compareTo(BigDecimal.ZERO) > 0) {
+                // Very first month and no NAV at all — use invested as bootstrap only
                 portfolioValue = cumulativeInvested;
             }
 
-            String label = cursor.getMonth().name().substring(0, 3) + " '"
-                + String.valueOf(cursor.getYear()).substring(2);
-            Map<String, Object> point = new LinkedHashMap<>();
-            point.put("month", label);
-            point.put("invested", cumulativeInvested.setScale(2, RoundingMode.HALF_UP));
-            point.put("value", portfolioValue.setScale(2, RoundingMode.HALF_UP));
-            timeline.add(point);
+            // Only emit data points where something has actually been invested
+            if (cumulativeInvested.compareTo(BigDecimal.ZERO) > 0) {
+                String label = cursor.getMonth().name().substring(0, 3) + " '"
+                    + String.valueOf(cursor.getYear()).substring(2);
+                Map<String, Object> point = new LinkedHashMap<>();
+                point.put("month", label);
+                point.put("invested", cumulativeInvested.setScale(2, RoundingMode.HALF_UP));
+                point.put("value", portfolioValue.setScale(2, RoundingMode.HALF_UP));
+                timeline.add(point);
+            }
 
             cursor = nextMonth;
         }

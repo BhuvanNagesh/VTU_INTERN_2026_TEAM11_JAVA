@@ -15,7 +15,8 @@ import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.*;
-import java.util.logging.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * SchemeService — manages scheme data from AMFI NAVAll.txt.
@@ -27,7 +28,7 @@ import java.util.logging.Logger;
 @Service
 public class SchemeService {
 
-    private static final Logger log = Logger.getLogger(SchemeService.class.getName());
+    private static final Logger log = LoggerFactory.getLogger(SchemeService.class);
     private static final String AMFI_URL = "https://www.amfiindia.com/spages/NAVAll.txt";
 
     @Autowired
@@ -122,7 +123,7 @@ public class SchemeService {
                     }
                 } catch (Exception e) {
                     skipped++;
-                    log.warning("[Seed] Skipped " + incoming.getAmfiCode() + ": " + e.getMessage());
+                    log.warn("[Seed] Skipped {}: {}", incoming.getAmfiCode(), e.getMessage());
                 }
             }
 
@@ -138,7 +139,7 @@ public class SchemeService {
             return response;
 
         } catch (Exception e) {
-            log.severe("[Seed] Failed: " + e.getMessage());
+            log.error("[Seed] Failed: {}", e.getMessage());
             throw new RuntimeException("Seeding failed: " + e.getMessage(), e);
         }
     }
@@ -152,7 +153,7 @@ public class SchemeService {
         try {
             seedFromNavAll();
         } catch (Exception e) {
-            log.warning("[Seed] Scheduled sync failed: " + e.getMessage());
+            log.warn("[Seed] Scheduled sync failed: {}", e.getMessage());
         }
     }
 }

@@ -12,7 +12,8 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
-import java.util.logging.Logger;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -35,7 +36,7 @@ import java.util.regex.Pattern;
  */
 public class NavAllTxtParser {
 
-    private static final Logger log = Logger.getLogger(NavAllTxtParser.class.getName());
+    private static final Logger log = LoggerFactory.getLogger(NavAllTxtParser.class);
 
     // Locale.ENGLISH is REQUIRED — prevents parse failures on non-English OS locales
     private static final DateTimeFormatter NAV_DATE_FMT =
@@ -132,7 +133,7 @@ public class NavAllTxtParser {
                 result.schemes.add(s);
 
             } catch (Exception e) {
-                log.warning("Skipping malformed line " + lineNo + ": " + e.getMessage());
+                log.warn("Skipping malformed line {}: {}", lineNo, e.getMessage());
             }
         }
 

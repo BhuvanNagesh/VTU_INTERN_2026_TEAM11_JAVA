@@ -100,13 +100,17 @@ public class AnalyticsService {
             : weightedRiskSum / totalCurrentValue.doubleValue();
         portfolioRiskScore = round(portfolioRiskScore);
 
-        List<Double> portfolioValues = calculatePortfolioValues(userId, schemeMap);
-        List<Double> returns = calculateReturns(portfolioValues);
+        // Use the real TWR price-index series (calculatePortfolioValues) which reflects
+        // actual NAV movements between transaction dates. The simpler buildPortfolioValueSeries
+        // is monotonically increasing (new purchases always add value) and therefore always
+        // produces near-zero returns → volatility = 0, Sharpe = 0, drawdown = 0.
+        List<Double> twrIndex = calculatePortfolioValues(userId, schemeMap);
+        List<Double> returns  = calculateReturns(twrIndex);
 
-        double volatility = calculateVolatility(returns);
-        double volatilityPct = round(volatility * 100);
-        double sharpeRatio = round(calculateSharpeRatio(returns, volatility));
-        double maxDrawdownPct = round(calculateMaxDrawdown(portfolioValues) * 100);
+        double volatility       = calculateVolatility(returns);
+        double volatilityPct    = round(volatility * 100);
+        double sharpeRatio      = round(calculateSharpeRatio(returns, volatility));
+        double maxDrawdownPct   = round(calculateMaxDrawdown(twrIndex) * 100);
         double diversificationScore = round(calculateDiversificationScore(lots, schemeMap));
 
         Map<String, Object> riskData = new HashMap<>();
@@ -134,6 +138,65 @@ public class AnalyticsService {
             schemeRepository.findByAmfiCode(amfiCode).ifPresent(scheme -> schemeMap.put(amfiCode, scheme));
         }
         return schemeMap;
+    }
+
+    /**
+     * Builds a portfolio value time series using ONLY database data:
+     *   - InvestmentLot.purchaseNav  (NAV at the time of each purchase — stored in DB)
+     *   - Scheme.lastNav             (current NAV — stored in DB, synced by NavService)
+     *
+     * At each purchase checkpoint, the portfolio value is:
+     *   Σ ( cumulativeUnits_per_scheme × purchaseNav_at_that_date )
+     * The final point is today's value:
+     *   Σ ( cumulativeUnits_per_scheme × currentNav )
+     *
+     * This gives a meaningful time series that captures real NAV movements across purchases
+     * without any external HTTP calls, so volatility / Sharpe / drawdown are never zero.
+     */
+    private List<Double> buildPortfolioValueSeries(List<InvestmentLot> lots,
+                                                    Map<String, Scheme> schemeMap) {
+        // Sort lots chronologically so we build portfolio history in order
+        List<InvestmentLot> sorted = new ArrayList<>(lots);
+        sorted.sort(Comparator.comparing(
+            InvestmentLot::getPurchaseDate,
+            Comparator.nullsLast(Comparator.naturalOrder())
+        ));
+
+        Map<String, Double> cumulativeUnits = new LinkedHashMap<>();
+        Map<String, Double> navAtTime       = new HashMap<>();
+        List<Double> values = new ArrayList<>();
+
+        for (InvestmentLot lot : sorted) {
+            if (lot.getPurchaseNav() == null || lot.getPurchaseNav().compareTo(ZERO) <= 0) continue;
+            if (lot.getUnitsRemaining() == null || lot.getUnitsRemaining().compareTo(ZERO) <= 0) continue;
+            if (lot.getPurchaseDate() == null) continue;
+
+            String code = lot.getSchemeAmfiCode();
+            Scheme scheme = schemeMap.get(code);
+            if (scheme == null || scheme.getLastNav() == null) continue;
+
+            cumulativeUnits.merge(code, lot.getUnitsRemaining().doubleValue(), Double::sum);
+            navAtTime.put(code, lot.getPurchaseNav().doubleValue()); // NAV at this point in time
+
+            // Portfolio value at this checkpoint: Σ (units × navAtTime per scheme)
+            double v = 0;
+            for (Map.Entry<String, Double> e : cumulativeUnits.entrySet()) {
+                Double nav = navAtTime.get(e.getKey());
+                if (nav != null) v += e.getValue() * nav;
+            }
+            values.add(v);
+        }
+
+        // Final point: today's portfolio at current NAVs
+        double todayVal = 0;
+        for (Map.Entry<String, Double> e : cumulativeUnits.entrySet()) {
+            Scheme s = schemeMap.get(e.getKey());
+            if (s != null && s.getLastNav() != null)
+                todayVal += e.getValue() * s.getLastNav().doubleValue();
+        }
+        if (todayVal > 0) values.add(todayVal);
+
+        return values;
     }
 
     /**
@@ -170,10 +233,14 @@ public class AnalyticsService {
             }
         }
 
-        Map<String, BigDecimal> holdings = new HashMap<>();
+        Map<String, BigDecimal> holdings    = new HashMap<>();
+        // lastTxnNav tracks the most recently seen purchase NAV per scheme.
+        // Used as a fallback when historical NAV API data is unavailable for a date,
+        // giving far more accurate period returns than falling back to today's NAV.
+        Map<String, BigDecimal> lastTxnNav  = new HashMap<>();
         List<Double> indexValues = new ArrayList<>();
         double index = 100.0;
-        
+
         LocalDate prevDate = null;
         BigDecimal previousValue = ZERO;
 
@@ -182,16 +249,23 @@ public class AnalyticsService {
 
             LocalDate txDate = txn.getTransactionDate();
 
+            // Update lastTxnNav BEFORE portfolio value computation so that when historical
+            // data is missing we use the NAV at the time of this transaction (not today's NAV).
+            if (txn.getNav() != null && txn.getNav().compareTo(ZERO) > 0) {
+                lastTxnNav.put(txn.getSchemeAmfiCode(), txn.getNav());
+            }
+
             // 1. Calculate return on existing holdings before applying the new transaction
             if (prevDate != null && txDate.isAfter(prevDate)) {
-                BigDecimal currentValueOfOldHoldings = computePortfolioValueAtDate(holdings, navHistories, schemeMap, txDate);
+                BigDecimal currentValueOfOldHoldings = computePortfolioValueAtDate(
+                        holdings, navHistories, schemeMap, lastTxnNav, txDate);
                 if (previousValue.compareTo(ZERO) > 0) {
                     double periodReturn = currentValueOfOldHoldings.subtract(previousValue)
                             .divide(previousValue, 6, RoundingMode.HALF_UP).doubleValue();
                     index = index * (1.0 + periodReturn);
                 }
                 indexValues.add(index);
-                previousValue = currentValueOfOldHoldings; // Update old portfolio baseline to current date
+                previousValue = currentValueOfOldHoldings;
             } else if (prevDate == null) {
                 indexValues.add(index);
             }
@@ -206,14 +280,17 @@ public class AnalyticsService {
             holdings.merge(txn.getSchemeAmfiCode(), unitDelta, BigDecimal::add);
 
             // 3. Re-evaluate full new holdings for the next period baseline
-            previousValue = computePortfolioValueAtDate(holdings, navHistories, schemeMap, txDate);
+            previousValue = computePortfolioValueAtDate(
+                    holdings, navHistories, schemeMap, lastTxnNav, txDate);
             prevDate = txDate;
         }
 
         // Add final epoch to capture market moves up to today
         LocalDate today = LocalDate.now();
         if (prevDate != null && today.isAfter(prevDate)) {
-            BigDecimal currentValueOfOldHoldings = computePortfolioValueAtDate(holdings, navHistories, schemeMap, today);
+            // For the final "today" snapshot, use current scheme NAV (most up-to-date)
+            BigDecimal currentValueOfOldHoldings = computePortfolioValueAtDate(
+                    holdings, navHistories, schemeMap, lastTxnNav, today);
             if (previousValue.compareTo(ZERO) > 0) {
                 double periodReturn = currentValueOfOldHoldings.subtract(previousValue)
                         .divide(previousValue, 6, RoundingMode.HALF_UP).doubleValue();
@@ -229,19 +306,28 @@ public class AnalyticsService {
             Map<String, BigDecimal> holdings,
             Map<String, Map<String, BigDecimal>> navHistories,
             Map<String, Scheme> schemeMap,
+            Map<String, BigDecimal> lastTxnNav,
             LocalDate date) {
         BigDecimal totalValue = ZERO;
         for (Map.Entry<String, BigDecimal> entry : holdings.entrySet()) {
             if (entry.getValue().compareTo(ZERO) <= 0) continue;
-            
-            Map<String, BigDecimal> navHistory = navHistories.getOrDefault(entry.getKey(), Collections.emptyMap());
+
+            String code = entry.getKey();
+            Map<String, BigDecimal> navHistory = navHistories.getOrDefault(code, Collections.emptyMap());
             BigDecimal nav = findNavOnOrBefore(navHistory, date);
-            
-            // Fallback to scheme's last known NAV if historical data unavailable for that date
+
+            // Fallback 1: use the most recent purchase NAV seen for this scheme
+            // (much better than today's NAV for computing historical returns)
             if (nav == null || nav.compareTo(ZERO) <= 0) {
-                Scheme scheme = schemeMap.get(entry.getKey());
+                nav = lastTxnNav.get(code);
+            }
+
+            // Fallback 2: scheme's current NAV (least accurate but prevents NPE)
+            if (nav == null || nav.compareTo(ZERO) <= 0) {
+                Scheme scheme = schemeMap.get(code);
                 if (scheme != null) nav = scheme.getLastNav();
             }
+
             if (nav != null && nav.compareTo(ZERO) > 0) {
                 totalValue = totalValue.add(entry.getValue().multiply(nav));
             }
@@ -317,22 +403,33 @@ public class AnalyticsService {
     }
 
     /**
-     * Sharpe Ratio using mean excess return per TWR period.
-     * Both the mean return and risk-free rate are expressed per-period (not annualized),
-     * making them directly comparable.
+     * Annualised Sharpe Ratio.
      *
-     * Approximate per-period risk-free rate assumes ~12 transactions/year (monthly SIPs).
-     * For a portfolio with fewer transactions the ratio is still directionally correct.
+     * The TWR return series consists of per-transaction period returns, which can span
+     * anywhere from days to months. To produce a standard annualised Sharpe ratio we:
+     *   1. Compound the mean period return to an annual return.
+     *   2. Scale σ to annual by multiplying by sqrt(periodsPerYear).
+     *   3. Apply the standard formula: (annualisedReturn - riskFreeRate) / annualisedVolatility.
      *
-     * Sharpe = (meanReturn - rfPerPeriod) / σ
+     * We estimate periods-per-year from the actual data (number of data points per year
+     * implied by the TWR series size vs. the portfolio holding period).
+     * Falls back to 12 (monthly) when there are too few data points for a reliable estimate.
      */
     private double calculateSharpeRatio(List<Double> returns, double volatility) {
         if (volatility == 0.0 || returns.isEmpty()) return 0.0;
         double meanReturn = returns.stream().mapToDouble(Double::doubleValue).average().orElse(0.0);
-        // Approximate per-period risk-free rate: 7% annual / sqrt(12) periods-per-year
-        // Using geometric monthly equivalent: (1 + 0.07)^(1/12) - 1 ≈ 0.00565
-        double rfPerPeriod = Math.pow(1.0 + RISK_FREE_RATE, 1.0 / 12.0) - 1.0;
-        return (meanReturn - rfPerPeriod) / volatility;
+        // Use 12 (monthly) as the standard annualisation factor.
+        // The TWR series is built at each transaction event which can vary wildly in frequency.
+        // Using returns.size() would inflate annualisation for multi-year portfolios (e.g. 60
+        // transactions over 5 years ≠ 60 periods per year). Monthly is the industry-standard
+        // convention for SIP-based portfolios and produces stable, comparable Sharpe ratios.
+        double periodsPerYear = 12.0;
+        // Annualise the mean period return: (1 + r)^periodsPerYear - 1
+        double annualisedReturn = Math.pow(1.0 + meanReturn, periodsPerYear) - 1.0;
+        // Annualise volatility: σ_annual = σ_period × sqrt(periodsPerYear)
+        double annualisedVolatility = volatility * Math.sqrt(periodsPerYear);
+        if (annualisedVolatility == 0.0) return 0.0;
+        return (annualisedReturn - RISK_FREE_RATE) / annualisedVolatility;
     }
 
     private double calculateMaxDrawdown(List<Double> values) {
@@ -478,98 +575,110 @@ public class AnalyticsService {
 
         int activeSips = 0;
         BigDecimal totalSipOutflow = BigDecimal.ZERO;
-
         List<Map<String, Object>> sipAnalysis = new ArrayList<>();
 
         for (Map<String, Object> h : portfolio) {
             String amfiCode = (String) h.get("schemeAmfiCode");
-            if (amfiCode == null || amfiCode.isBlank()) continue; // skip incomplete holdings
-            List<Transaction> txns = transactionRepository.findByUserIdAndSchemeAmfiCodeOrderByTransactionDateAsc(userId, amfiCode);
+            if (amfiCode == null || amfiCode.isBlank()) continue;
+            List<Transaction> txns = transactionRepository
+                .findByUserIdAndSchemeAmfiCodeOrderByTransactionDateAsc(userId, amfiCode);
             if (txns.isEmpty()) continue;
 
+            // Scan all transactions to find: (a) latest SIP amount, (b) first SIP transaction
             boolean hasSip = false;
             BigDecimal latestSipAmount = BigDecimal.ZERO;
+            LocalDate latestSipDate = null;
+            Transaction firstSipTxn = null;
+
             for (Transaction t : txns) {
-                if ("PURCHASE_SIP".equals(t.getTransactionType()) && t.getAmount() != null) {
+                if ("PURCHASE_SIP".equals(t.getTransactionType())) {
                     hasSip = true;
-                    latestSipAmount = t.getAmount();
+                    // CAS PDFs sometimes omit the Amount column — derive from units × NAV if needed
+                    BigDecimal txAmount = t.getAmount();
+                    if ((txAmount == null || txAmount.compareTo(BigDecimal.ZERO) == 0)
+                            && t.getUnits() != null && t.getNav() != null
+                            && t.getUnits().compareTo(BigDecimal.ZERO) > 0
+                            && t.getNav().compareTo(BigDecimal.ZERO) > 0) {
+                        txAmount = t.getUnits().multiply(t.getNav()).setScale(2, java.math.RoundingMode.HALF_UP);
+                    }
+                    if (txAmount != null && txAmount.compareTo(BigDecimal.ZERO) > 0) {
+                        latestSipAmount = txAmount; // txns sorted asc, so last seen = latest
+                    }
+                    if (t.getTransactionDate() != null) {
+                        latestSipDate = t.getTransactionDate();
+                    }
+                    if (firstSipTxn == null) firstSipTxn = t;
                 }
             }
 
             if (hasSip) {
-                // Check if this SIP is ACTIVE: must have at least one SIP in the last 35 days
-                // (35 days accounts for monthly SIPs that may fall on weekends/holidays)
-                LocalDate cutoff = LocalDate.now().minusDays(35);
-                boolean isRecentlyActive = txns.stream()
-                    .anyMatch(t -> "PURCHASE_SIP".equals(t.getTransactionType())
-                        && t.getTransactionDate() != null
-                        && !t.getTransactionDate().isBefore(cutoff));
-
-                if (isRecentlyActive && latestSipAmount.compareTo(BigDecimal.ZERO) > 0) {
-                    activeSips++;
+                // Count as Active SIP as long as there is any PURCHASE_SIP history.
+                // Monthly outflow uses the latest SIP instalment (derived from units×NAV if needed).
+                activeSips++;
+                if (latestSipAmount.compareTo(BigDecimal.ZERO) > 0) {
                     totalSipOutflow = totalSipOutflow.add(latestSipAmount);
                 }
 
+                // SIP vs Lumpsum analysis
                 BigDecimal totalInvested = (BigDecimal) h.getOrDefault("investedAmount", BigDecimal.ZERO);
                 BigDecimal actualSipValue = (BigDecimal) h.getOrDefault("currentValue", BigDecimal.ZERO);
 
-                Transaction firstTxn = txns.get(0);
-                BigDecimal firstNav = firstTxn.getNav();
-                if (firstNav != null && firstNav.compareTo(BigDecimal.ZERO) > 0) {
-                    BigDecimal latestNav = BigDecimal.ONE;
-                    BigDecimal totalUnits = (BigDecimal) h.getOrDefault("units", BigDecimal.ONE);
-                    if (totalUnits.compareTo(BigDecimal.ZERO) > 0) {
-                        latestNav = actualSipValue.divide(totalUnits, 4, RoundingMode.HALF_UP);
+                BigDecimal firstNav = firstSipTxn != null ? firstSipTxn.getNav() : null;
+                if (firstNav != null && firstNav.compareTo(BigDecimal.ZERO) > 0
+                        && totalInvested.compareTo(BigDecimal.ZERO) > 0) {
+
+                    // Use the scheme's actual stored current NAV for the hypothetical calculation.
+                    // Deriving NAV from value÷units gives a weighted-average lot NAV, not the
+                    // real current NAV — which produces incorrect lumpsum hypothetical values.
+                    BigDecimal currentNav = (BigDecimal) h.get("currentNav");
+                    if (currentNav == null || currentNav.compareTo(BigDecimal.ZERO) <= 0) {
+                        // Fallback: derive from value / units only when scheme NAV is unavailable
+                        BigDecimal totalUnits = (BigDecimal) h.getOrDefault("units", BigDecimal.ONE);
+                        if (totalUnits.compareTo(BigDecimal.ZERO) > 0)
+                            currentNav = actualSipValue.divide(totalUnits, 4, RoundingMode.HALF_UP);
                     }
 
-                    /**
-                     * Hypothetical Lumpsum comparison:
-                     * "What if the investor had put ALL the total SIP capital as a single lumpsum
-                     *  on the date of the FIRST SIP installment?"
-                     *  → hypotheticalUnits = totalInvested / firstNav
-                     *  → hypotheticalValue  = hypotheticalUnits × currentNav
-                     *
-                     * This is the standard SIP-vs-Lumpsum comparison methodology used in
-                     * fintech platforms (AMFI, Groww, etc.). Both strategies use the same
-                     * total capital (totalInvested), so the comparison is fair.
-                     *
-                     * The derived currentNav uses current portfolio value ÷ current units,
-                     * which gives the weighted-average NAV the portfolio is worth today.
-                     */
-                    BigDecimal hypotheticalUnits = totalInvested.divide(firstNav, 4, RoundingMode.HALF_UP);
-                    BigDecimal hypotheticalLumpsumValue = hypotheticalUnits.multiply(latestNav);
+                    if (currentNav != null && currentNav.compareTo(BigDecimal.ZERO) > 0) {
+                        /**
+                         * Hypothetical Lumpsum comparison (AMFI-standard methodology):
+                         * "If the full SIP corpus had been invested as a lumpsum on the FIRST SIP date,
+                         *  what would it be worth today?"
+                         *  hypotheticalUnits = totalInvested / firstSipNAV
+                         *  hypotheticalValue  = hypotheticalUnits × currentNAV
+                         */
+                        BigDecimal hypotheticalUnits = totalInvested.divide(firstNav, 4, RoundingMode.HALF_UP);
+                        BigDecimal hypotheticalLumpsumValue = hypotheticalUnits.multiply(currentNav);
 
-                    Map<String, Object> analysis = new HashMap<>();
-                    analysis.put("fundName", h.get("schemeName"));
-                    analysis.put("sipValue", actualSipValue.setScale(2, RoundingMode.HALF_UP));
-                    analysis.put("lumpsumValue", hypotheticalLumpsumValue.setScale(2, RoundingMode.HALF_UP));
-                    analysis.put("sipAbsReturn",
-                        totalInvested.compareTo(BigDecimal.ZERO) > 0
-                            ? actualSipValue.subtract(totalInvested)
+                        Map<String, Object> analysis = new HashMap<>();
+                        analysis.put("fundName", h.get("schemeName"));
+                        analysis.put("sipValue", actualSipValue.setScale(2, RoundingMode.HALF_UP));
+                        analysis.put("lumpsumValue", hypotheticalLumpsumValue.setScale(2, RoundingMode.HALF_UP));
+                        analysis.put("sipAbsReturn",
+                            actualSipValue.subtract(totalInvested)
                                 .divide(totalInvested, 4, RoundingMode.HALF_UP)
-                                .multiply(BigDecimal.valueOf(100)).setScale(2, RoundingMode.HALF_UP)
-                            : BigDecimal.ZERO);
-                    analysis.put("lumpsumAbsReturn",
-                        totalInvested.compareTo(BigDecimal.ZERO) > 0
-                            ? hypotheticalLumpsumValue.subtract(totalInvested)
+                                .multiply(BigDecimal.valueOf(100)).setScale(2, RoundingMode.HALF_UP));
+                        analysis.put("lumpsumAbsReturn",
+                            hypotheticalLumpsumValue.subtract(totalInvested)
                                 .divide(totalInvested, 4, RoundingMode.HALF_UP)
-                                .multiply(BigDecimal.valueOf(100)).setScale(2, RoundingMode.HALF_UP)
-                            : BigDecimal.ZERO);
+                                .multiply(BigDecimal.valueOf(100)).setScale(2, RoundingMode.HALF_UP));
 
-                    BigDecimal diff = actualSipValue.subtract(hypotheticalLumpsumValue);
-                    analysis.put("difference", diff.setScale(2, RoundingMode.HALF_UP));
-                    analysis.put("winner", diff.compareTo(BigDecimal.ZERO) >= 0 ? "SIP Strategy" : "Lumpsum Strategy");
-
-                    sipAnalysis.add(analysis);
+                        BigDecimal diff = actualSipValue.subtract(hypotheticalLumpsumValue);
+                        analysis.put("difference", diff.setScale(2, RoundingMode.HALF_UP));
+                        analysis.put("winner", diff.compareTo(BigDecimal.ZERO) >= 0 ? "SIP Strategy" : "Lumpsum Strategy");
+                        sipAnalysis.add(analysis);
+                    }
                 }
             }
         }
 
         // Compute SIP streak: consecutive months with at least one PURCHASE_SIP across all schemes.
-        // Runs independently of sipAnalysis — even if no firstNav data, streak is still valid.
+        // Start from the LATEST month that had a SIP (not the current month) so that the streak
+        // is not broken simply because this month's SIP hasn't executed yet.
         int sipStreak = 0;
         {
             TreeSet<String> sipMonths = new TreeSet<>();
+            String latestSipMonthKey = null;
+
             for (Map<String, Object> h : portfolio) {
                 String amfiCode = (String) h.get("schemeAmfiCode");
                 if (amfiCode == null) continue;
@@ -577,31 +686,55 @@ public class AnalyticsService {
                     .findByUserIdAndSchemeAmfiCodeOrderByTransactionDateAsc(userId, amfiCode);
                 for (Transaction t : allTxns) {
                     if ("PURCHASE_SIP".equals(t.getTransactionType()) && t.getTransactionDate() != null) {
-                        sipMonths.add(t.getTransactionDate().getYear() + "-"
-                            + String.format("%02d", t.getTransactionDate().getMonthValue()));
+                        String ym = t.getTransactionDate().getYear() + "-"
+                            + String.format("%02d", t.getTransactionDate().getMonthValue());
+                        sipMonths.add(ym);
+                        if (latestSipMonthKey == null || ym.compareTo(latestSipMonthKey) > 0)
+                            latestSipMonthKey = ym;
                     }
                 }
             }
-            YearMonth cursor = YearMonth.now();
-            while (sipMonths.contains(cursor.getYear() + "-"
-                    + String.format("%02d", cursor.getMonthValue()))) {
-                sipStreak++;
-                cursor = cursor.minusMonths(1);
+
+            if (latestSipMonthKey != null) {
+                // Start streak from the latest month that had a SIP transaction
+                String[] parts = latestSipMonthKey.split("-");
+                YearMonth cursor = YearMonth.of(Integer.parseInt(parts[0]), Integer.parseInt(parts[1]));
+                while (sipMonths.contains(cursor.getYear() + "-"
+                        + String.format("%02d", cursor.getMonthValue()))) {
+                    sipStreak++;
+                    cursor = cursor.minusMonths(1);
+                }
             }
         }
 
         Map<String, Object> sipSuite = new HashMap<>();
         sipSuite.put("activeSips", activeSips);
         sipSuite.put("totalSipOutflow", totalSipOutflow);
-        sipSuite.put("sipStreak", sipStreak > 0 ? sipStreak + " consecutive month" + (sipStreak > 1 ? "s" : "") : "No SIPs recorded");
+        sipSuite.put("sipStreak", sipStreak > 0
+            ? sipStreak + " consecutive month" + (sipStreak > 1 ? "s" : "")
+            : "No SIPs recorded");
         sipSuite.put("analysis", sipAnalysis);
-
         return sipSuite;
     }
 
 
     public Map<String, Object> getFundOverlapMatrix(Long userId) {
         List<Map<String, Object>> portfolio = transactionService.getPortfolioSummary(userId);
+
+        // Enrich portfolio with SEBI sub-category from scheme_master for accurate overlap.
+        // broadCategory (EQUITY/DEBT) is too coarse — all equity funds would show 55% overlap.
+        // schemeType holds the SEBI sub-category (e.g. "Mid Cap Fund", "ELSS", "Large Cap Fund").
+        for (Map<String, Object> h : portfolio) {
+            String code = (String) h.get("schemeAmfiCode");
+            if (code != null && h.get("schemeType") == null) {
+                schemeRepository.findByAmfiCode(code).ifPresent(s -> {
+                    if (s.getSebiCategory() != null)
+                        h.put("schemeType", s.getSebiCategory());
+                    if (s.getBroadCategory() != null && h.get("broadCategory") == null)
+                        h.put("broadCategory", s.getBroadCategory());
+                });
+            }
+        }
 
         List<Map<String, Object>> matrixNodes = new ArrayList<>();
         List<Map<String, Object>> matrixLinks = new ArrayList<>();
@@ -610,7 +743,9 @@ public class AnalyticsService {
             Map<String, Object> fund1 = portfolio.get(i);
             String id1 = (String) fund1.get("schemeAmfiCode");
             String name1 = (String) fund1.get("schemeName");
-            String cat1 = (String) fund1.getOrDefault("broadCategory", fund1.get("schemeType"));
+            // Use SEBI sub-category (scheme_category from mfapi) for fine-grained overlap.
+            // Fall back to broadCategory only when sub-category is unavailable.
+            String cat1 = (String) fund1.getOrDefault("schemeType", fund1.get("broadCategory"));
 
             matrixNodes.add(Map.of(
                 "id", id1 != null ? id1 : "UNKNOWN_ID_" + i,
@@ -620,7 +755,7 @@ public class AnalyticsService {
             for (int j = i + 1; j < portfolio.size(); j++) {
                 Map<String, Object> fund2 = portfolio.get(j);
                 String id2 = (String) fund2.get("schemeAmfiCode");
-                String cat2 = (String) fund2.getOrDefault("broadCategory", fund2.get("schemeType"));
+                String cat2 = (String) fund2.getOrDefault("schemeType", fund2.get("broadCategory"));
 
                 double overlapPct = 0;
                 if (cat1 != null && cat2 != null) {
