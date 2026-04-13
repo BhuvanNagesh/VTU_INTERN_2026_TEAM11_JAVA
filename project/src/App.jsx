@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ThemeProvider, useTheme } from './context/ThemeContext';
+import { BackendWarmupProvider } from './context/BackendWarmupContext';
 import Navbar from './components/Navbar';
 import Hero from './components/Hero';
 import MutualFundSection from './components/MutualFundSection';
@@ -16,6 +17,7 @@ import TransactionsPage from './components/TransactionsPage';
 import ProfilePage from './components/ProfilePage';
 import AnalyticsPage from './components/AnalyticsPage';
 import ErrorBoundary from './components/ErrorBoundary';
+import WarmupOverlay from './components/WarmupOverlay';
 import './App.css';
 
 // Landing page (existing)
@@ -122,11 +124,14 @@ function App() {
   return (
     <BrowserRouter>
       <ThemeProvider>
-        <AuthProvider>
-          <ErrorBoundary>
-            <AppContent />
-          </ErrorBoundary>
-        </AuthProvider>
+        <BackendWarmupProvider>
+          <AuthProvider>
+            <ErrorBoundary>
+              <AppContent />
+              <WarmupOverlay />
+            </ErrorBoundary>
+          </AuthProvider>
+        </BackendWarmupProvider>
       </ThemeProvider>
     </BrowserRouter>
   );

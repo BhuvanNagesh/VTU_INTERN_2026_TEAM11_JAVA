@@ -1,0 +1,195 @@
+/* ── Warmup overlay — full-screen cold-start splash ──────────────────────── */
+
+.warmup-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(10, 10, 15, 0.96);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+}
+
+/* Animated background blobs */
+.warmup-blob {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(80px);
+    animation: warmup-float 8s ease-in-out infinite;
+    pointer-events: none;
+}
+.warmup-blob-1 {
+    width: 400px; height: 400px;
+    background: radial-gradient(circle, rgba(0, 208, 156, 0.18) 0%, transparent 70%);
+    top: -100px; left: -100px;
+    animation-delay: 0s;
+}
+.warmup-blob-2 {
+    width: 350px; height: 350px;
+    background: radial-gradient(circle, rgba(123, 97, 255, 0.15) 0%, transparent 70%);
+    bottom: -80px; right: -80px;
+    animation-delay: -3s;
+}
+.warmup-blob-3 {
+    width: 300px; height: 300px;
+    background: radial-gradient(circle, rgba(0, 160, 255, 0.1) 0%, transparent 70%);
+    top: 50%; left: 60%;
+    animation-delay: -6s;
+}
+@keyframes warmup-float {
+    0%, 100% { transform: translate(0, 0) scale(1); }
+    33%       { transform: translate(20px, -20px) scale(1.05); }
+    66%       { transform: translate(-15px, 15px) scale(0.97); }
+}
+
+/* The card */
+.warmup-card {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+    padding: 44px 40px 36px;
+    border-radius: 24px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow:
+        0 24px 80px rgba(0, 0, 0, 0.5),
+        0 0 0 1px rgba(0, 208, 156, 0.06) inset;
+    max-width: 400px;
+    width: 90%;
+    text-align: center;
+}
+
+/* Logo row */
+.warmup-logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 4px;
+}
+.warmup-logo-mark {
+    width: 36px; height: 36px;
+    border-radius: 10px;
+    background: linear-gradient(135deg, rgba(0,208,156,0.25), rgba(0,208,156,0.05));
+    border: 1px solid rgba(0, 208, 156, 0.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.warmup-logo-text {
+    font-family: 'Inter', 'Outfit', sans-serif;
+    font-size: 20px;
+    font-weight: 700;
+    background: linear-gradient(135deg, #FFFFFF, rgba(255,255,255,0.7));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    letter-spacing: -0.5px;
+}
+
+/* Spinner */
+.warmup-spinner-wrap {
+    position: relative;
+    width: 72px; height: 72px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.warmup-spinner-ring {
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    border: 3px solid transparent;
+    border-top-color: #00D09C;
+    animation: warmup-spin 1.1s linear infinite;
+}
+.warmup-spinner-ring--inner {
+    inset: 10px;
+    border-top-color: rgba(123, 97, 255, 0.7);
+    border-right-color: rgba(123, 97, 255, 0.3);
+    animation-direction: reverse;
+    animation-duration: 0.8s;
+}
+.warmup-spinner-center {
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px; height: 36px;
+    border-radius: 50%;
+    background: rgba(0, 208, 156, 0.1);
+    border: 1px solid rgba(0, 208, 156, 0.2);
+}
+@keyframes warmup-spin {
+    to { transform: rotate(360deg); }
+}
+
+/* Title */
+.warmup-title {
+    font-family: 'Inter', sans-serif;
+    font-size: 22px;
+    font-weight: 700;
+    color: #FFFFFF;
+    margin: 0;
+    letter-spacing: -0.5px;
+}
+
+/* Rotating tip */
+.warmup-tip {
+    font-size: 14px;
+    color: rgba(255,255,255,0.5);
+    margin: 0;
+    min-height: 22px;
+    font-family: 'Inter', sans-serif;
+}
+
+/* Progress bar */
+.warmup-progress-track {
+    width: 100%;
+    height: 4px;
+    border-radius: 99px;
+    background: rgba(255,255,255,0.07);
+    overflow: hidden;
+}
+.warmup-progress-fill {
+    height: 100%;
+    border-radius: 99px;
+    background: linear-gradient(90deg, #00D09C, #7B61FF);
+    width: 0%;
+    box-shadow: 0 0 8px rgba(0, 208, 156, 0.5);
+}
+
+/* Cold-start notice */
+.warmup-notice {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 12px 16px;
+    border-radius: 12px;
+    background: rgba(255, 178, 71, 0.06);
+    border: 1px solid rgba(255, 178, 71, 0.18);
+    font-family: 'Inter', sans-serif;
+    font-size: 12px;
+    color: rgba(255, 178, 71, 0.85);
+    text-align: left;
+    line-height: 1.55;
+    width: 100%;
+}
+.warmup-notice-icon {
+    font-size: 14px;
+    flex-shrink: 0;
+    margin-top: 1px;
+}
+.warmup-notice strong {
+    color: #FFB247;
+    font-weight: 600;
+}
+.warmup-elapsed {
+    color: rgba(255, 178, 71, 0.6);
+    font-size: 11px;
+    margin-left: 4px;
+}

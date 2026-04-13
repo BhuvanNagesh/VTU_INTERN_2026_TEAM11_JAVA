@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     X, Mail, Lock, Eye, EyeOff, User, CreditCard,
@@ -43,6 +43,20 @@ const SignInPanel = ({ onSwitch, onClose }) => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [successMsg, setSuccessMsg] = useState('');
+    const [loadingSeconds, setLoadingSeconds] = useState(0);
+    const timerRef = useRef(null);
+
+    // Counts up seconds while loading so we can show a helpful cold-start message
+    useEffect(() => {
+        if (loading) {
+            setLoadingSeconds(0);
+            timerRef.current = setInterval(() => setLoadingSeconds(s => s + 1), 1000);
+        } else {
+            clearInterval(timerRef.current);
+            setLoadingSeconds(0);
+        }
+        return () => clearInterval(timerRef.current);
+    }, [loading]);
     
     // Forgot Password states: 0 = sign in, 1 = ask email, 2 = ask OTP + new pass
     const [forgotStep, setForgotStep] = useState(0); 
@@ -187,8 +201,19 @@ const SignInPanel = ({ onSwitch, onClose }) => {
             </div>
             <motion.button type="submit" className="auth-primary-btn" disabled={loading}
                 whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
-                {loading ? 'Signing in…' : 'Sign In'} <ArrowRight size={16} />
+                {loading ? `Signing in… ${loadingSeconds > 0 ? `(${loadingSeconds}s)` : ''}` : 'Sign In'} <ArrowRight size={16} />
             </motion.button>
+            {/* Cold-start warming notice — only shows after 5 seconds of loading */}
+            {loading && loadingSeconds >= 5 && (
+                <div style={{
+                    marginTop: '10px', padding: '10px 14px', borderRadius: '10px',
+                    background: 'rgba(255, 178, 71, 0.08)', border: '1px solid rgba(255, 178, 71, 0.25)',
+                    fontSize: '12px', color: '#FFB247', lineHeight: 1.6, textAlign: 'center'
+                }}>
+                    ⏳ <strong>Backend is starting up</strong> — the first request after idle takes a moment.
+                    <br />Please wait, you'll be signed in shortly!
+                </div>
+            )}
             <p className="auth-switch-prompt">
                 Don't have an account?{' '}
                 <button type="button" className="auth-link" onClick={onSwitch}>Sign up free</button>
@@ -210,6 +235,19 @@ const SignUpPanel = ({ onSwitch, onClose }) => {
     const [pan, setPan] = useState('');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+    const [loadingSeconds, setLoadingSeconds] = useState(0);
+    const timerRef = useRef(null);
+
+    useEffect(() => {
+        if (loading) {
+            setLoadingSeconds(0);
+            timerRef.current = setInterval(() => setLoadingSeconds(s => s + 1), 1000);
+        } else {
+            clearInterval(timerRef.current);
+            setLoadingSeconds(0);
+        }
+        return () => clearInterval(timerRef.current);
+    }, [loading]);
 
     const handleNext = (e) => {
         e.preventDefault();
@@ -301,8 +339,18 @@ const SignUpPanel = ({ onSwitch, onClose }) => {
                         </p>
                         <motion.button type="submit" className="auth-primary-btn" disabled={loading}
                             whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
-                            {loading ? 'Creating account…' : 'Create Account'} <CheckCircle2 size={16} />
+                            {loading ? `Creating account… ${loadingSeconds > 0 ? `(${loadingSeconds}s)` : ''}` : 'Create Account'} <CheckCircle2 size={16} />
                         </motion.button>
+                        {loading && loadingSeconds >= 5 && (
+                            <div style={{
+                                marginTop: '10px', padding: '10px 14px', borderRadius: '10px',
+                                background: 'rgba(255, 178, 71, 0.08)', border: '1px solid rgba(255, 178, 71, 0.25)',
+                                fontSize: '12px', color: '#FFB247', lineHeight: 1.6, textAlign: 'center'
+                            }}>
+                                ⏳ <strong>Backend is starting up</strong> — the first request after idle takes a moment.
+                                <br />Please wait, your account is being created!
+                            </div>
+                        )}
                     </motion.form>
                 )}
             </AnimatePresence>
