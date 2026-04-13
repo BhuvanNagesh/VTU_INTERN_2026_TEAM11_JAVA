@@ -1,32 +1,37 @@
-D:\Data\Bhuvan Nagesh\Genesis Internship\Project\Project\project-bolt-github-kqfaysnh\backend\src\main\java\com\wealthwise\model\Transaction.java
-D:\Data\Bhuvan Nagesh\Genesis Internship\Project\Project\project-bolt-github-kqfaysnh\backend\src\main\java\com\wealthwise\repository\UserRepository.java
-D:\Data\Bhuvan Nagesh\Genesis Internship\Project\Project\project-bolt-github-kqfaysnh\backend\src\main\java\com\wealthwise\repository\TransactionRepository.java
-D:\Data\Bhuvan Nagesh\Genesis Internship\Project\Project\project-bolt-github-kqfaysnh\backend\src\main\java\com\wealthwise\service\ReturnsService.java
-D:\Data\Bhuvan Nagesh\Genesis Internship\Project\Project\project-bolt-github-kqfaysnh\backend\src\main\java\com\wealthwise\service\UserService.java
-D:\Data\Bhuvan Nagesh\Genesis Internship\Project\Project\project-bolt-github-kqfaysnh\backend\src\main\java\com\wealthwise\security\package-info.java
-D:\Data\Bhuvan Nagesh\Genesis Internship\Project\Project\project-bolt-github-kqfaysnh\backend\src\main\java\com\wealthwise\model\User.java
-D:\Data\Bhuvan Nagesh\Genesis Internship\Project\Project\project-bolt-github-kqfaysnh\backend\src\main\java\com\wealthwise\controller\SchemeController.java
-D:\Data\Bhuvan Nagesh\Genesis Internship\Project\Project\project-bolt-github-kqfaysnh\backend\src\main\java\com\wealthwise\service\AuthService.java
-D:\Data\Bhuvan Nagesh\Genesis Internship\Project\Project\project-bolt-github-kqfaysnh\backend\src\main\java\com\wealthwise\controller\UserController.java
-D:\Data\Bhuvan Nagesh\Genesis Internship\Project\Project\project-bolt-github-kqfaysnh\backend\src\main\java\com\wealthwise\repository\InvestmentLotRepository.java
-D:\Data\Bhuvan Nagesh\Genesis Internship\Project\Project\project-bolt-github-kqfaysnh\backend\src\main\java\com\wealthwise\model\InvestmentLot.java
-D:\Data\Bhuvan Nagesh\Genesis Internship\Project\Project\project-bolt-github-kqfaysnh\backend\src\main\java\com\wealthwise\security\JwtService.java
-D:\Data\Bhuvan Nagesh\Genesis Internship\Project\Project\project-bolt-github-kqfaysnh\backend\src\main\java\com\wealthwise\controller\ReturnsController.java
-D:\Data\Bhuvan Nagesh\Genesis Internship\Project\Project\project-bolt-github-kqfaysnh\backend\src\main\java\com\wealthwise\controller\NavController.java
-D:\Data\Bhuvan Nagesh\Genesis Internship\Project\Project\project-bolt-github-kqfaysnh\backend\src\main\java\com\wealthwise\security\SecurityConfig.java
-D:\Data\Bhuvan Nagesh\Genesis Internship\Project\Project\project-bolt-github-kqfaysnh\backend\src\main\java\com\wealthwise\service\CasPdfParserService.java
-D:\Data\Bhuvan Nagesh\Genesis Internship\Project\Project\project-bolt-github-kqfaysnh\backend\src\main\java\com\wealthwise\repository\SchemeRepository.java
-D:\Data\Bhuvan Nagesh\Genesis Internship\Project\Project\project-bolt-github-kqfaysnh\backend\src\main\java\com\wealthwise\WealthWiseApplication.java
-D:\Data\Bhuvan Nagesh\Genesis Internship\Project\Project\project-bolt-github-kqfaysnh\backend\src\main\java\com\wealthwise\controller\TransactionController.java
-D:\Data\Bhuvan Nagesh\Genesis Internship\Project\Project\project-bolt-github-kqfaysnh\backend\src\main\java\com\wealthwise\service\AnalyticsService.java
-D:\Data\Bhuvan Nagesh\Genesis Internship\Project\Project\project-bolt-github-kqfaysnh\backend\src\main\java\com\wealthwise\service\EmailService.java
-D:\Data\Bhuvan Nagesh\Genesis Internship\Project\Project\project-bolt-github-kqfaysnh\backend\src\main\java\com\wealthwise\controller\AuthController.java
-D:\Data\Bhuvan Nagesh\Genesis Internship\Project\Project\project-bolt-github-kqfaysnh\backend\src\main\java\com\wealthwise\repository\CasUploadLogRepository.java
-D:\Data\Bhuvan Nagesh\Genesis Internship\Project\Project\project-bolt-github-kqfaysnh\backend\src\main\java\com\wealthwise\service\NavService.java
-D:\Data\Bhuvan Nagesh\Genesis Internship\Project\Project\project-bolt-github-kqfaysnh\backend\src\main\java\com\wealthwise\service\SchemeService.java
-D:\Data\Bhuvan Nagesh\Genesis Internship\Project\Project\project-bolt-github-kqfaysnh\backend\src\main\java\com\wealthwise\controller\AnalyticsController.java
-D:\Data\Bhuvan Nagesh\Genesis Internship\Project\Project\project-bolt-github-kqfaysnh\backend\src\main\java\com\wealthwise\security\CacheConfig.java
-D:\Data\Bhuvan Nagesh\Genesis Internship\Project\Project\project-bolt-github-kqfaysnh\backend\src\main\java\com\wealthwise\model\CasUploadLog.java
-D:\Data\Bhuvan Nagesh\Genesis Internship\Project\Project\project-bolt-github-kqfaysnh\backend\src\main\java\com\wealthwise\parser\NavAllTxtParser.java
-D:\Data\Bhuvan Nagesh\Genesis Internship\Project\Project\project-bolt-github-kqfaysnh\backend\src\main\java\com\wealthwise\service\TransactionService.java
-D:\Data\Bhuvan Nagesh\Genesis Internship\Project\Project\project-bolt-github-kqfaysnh\backend\src\main\java\com\wealthwise\model\Scheme.java
+C:\Users\HP\wealthwise-project\VTU_INTERN_2026_TEAM11_JAVA\backend\src\main\java\com\wealthwise\model\Scheme.java
+C:\Users\HP\wealthwise-project\VTU_INTERN_2026_TEAM11_JAVA\backend\src\main\java\com\wealthwise\controller\TransactionController.java
+C:\Users\HP\wealthwise-project\VTU_INTERN_2026_TEAM11_JAVA\backend\src\main\java\com\wealthwise\security\SecurityConfig.java
+C:\Users\HP\wealthwise-project\VTU_INTERN_2026_TEAM11_JAVA\backend\src\main\java\com\wealthwise\service\EmailService.java
+C:\Users\HP\wealthwise-project\VTU_INTERN_2026_TEAM11_JAVA\backend\src\main\java\com\wealthwise\repository\CasUploadLogRepository.java
+C:\Users\HP\wealthwise-project\VTU_INTERN_2026_TEAM11_JAVA\backend\src\main\java\com\wealthwise\model\CasUploadLog.java
+C:\Users\HP\wealthwise-project\VTU_INTERN_2026_TEAM11_JAVA\backend\src\main\java\com\wealthwise\controller\AnalyticsController.java
+C:\Users\HP\wealthwise-project\VTU_INTERN_2026_TEAM11_JAVA\backend\src\main\java\com\wealthwise\parser\NavAllTxtParser.java
+C:\Users\HP\wealthwise-project\VTU_INTERN_2026_TEAM11_JAVA\backend\src\main\java\com\wealthwise\repository\UserRepository.java
+C:\Users\HP\wealthwise-project\VTU_INTERN_2026_TEAM11_JAVA\backend\src\main\java\com\wealthwise\security\CacheConfig.java
+C:\Users\HP\wealthwise-project\VTU_INTERN_2026_TEAM11_JAVA\backend\src\main\java\com\wealthwise\service\TransactionService.java
+C:\Users\HP\wealthwise-project\VTU_INTERN_2026_TEAM11_JAVA\backend\src\main\java\com\wealthwise\service\NavService.java
+C:\Users\HP\wealthwise-project\VTU_INTERN_2026_TEAM11_JAVA\backend\src\main\java\com\wealthwise\controller\ReturnsController.java
+C:\Users\HP\wealthwise-project\VTU_INTERN_2026_TEAM11_JAVA\backend\src\main\java\com\wealthwise\security\JwtService.java
+C:\Users\HP\wealthwise-project\VTU_INTERN_2026_TEAM11_JAVA\backend\src\main\java\com\wealthwise\controller\SIPController.java
+C:\Users\HP\wealthwise-project\VTU_INTERN_2026_TEAM11_JAVA\backend\src\main\java\com\wealthwise\service\AuthService.java
+C:\Users\HP\wealthwise-project\VTU_INTERN_2026_TEAM11_JAVA\backend\src\main\java\com\wealthwise\service\UserService.java
+C:\Users\HP\wealthwise-project\VTU_INTERN_2026_TEAM11_JAVA\backend\src\main\java\com\wealthwise\service\ReturnsService.java
+C:\Users\HP\wealthwise-project\VTU_INTERN_2026_TEAM11_JAVA\backend\src\main\java\com\wealthwise\dto\SIPDashboardResponse.java
+C:\Users\HP\wealthwise-project\VTU_INTERN_2026_TEAM11_JAVA\backend\src\main\java\com\wealthwise\model\InvestmentLot.java
+C:\Users\HP\wealthwise-project\VTU_INTERN_2026_TEAM11_JAVA\backend\src\main\java\com\wealthwise\controller\UserController.java
+C:\Users\HP\wealthwise-project\VTU_INTERN_2026_TEAM11_JAVA\backend\src\main\java\com\wealthwise\service\AnalyticsService.java
+C:\Users\HP\wealthwise-project\VTU_INTERN_2026_TEAM11_JAVA\backend\src\main\java\com\wealthwise\model\Transaction.java
+C:\Users\HP\wealthwise-project\VTU_INTERN_2026_TEAM11_JAVA\backend\src\main\java\com\wealthwise\repository\SchemeRepository.java
+C:\Users\HP\wealthwise-project\VTU_INTERN_2026_TEAM11_JAVA\backend\src\main\java\com\wealthwise\service\SchemeService.java
+C:\Users\HP\wealthwise-project\VTU_INTERN_2026_TEAM11_JAVA\backend\src\main\java\com\wealthwise\repository\TransactionRepository.java
+C:\Users\HP\wealthwise-project\VTU_INTERN_2026_TEAM11_JAVA\backend\src\main\java\com\wealthwise\service\CasPdfParserService.java
+C:\Users\HP\wealthwise-project\VTU_INTERN_2026_TEAM11_JAVA\backend\src\main\java\com\wealthwise\dto\TopUpResponse.java
+C:\Users\HP\wealthwise-project\VTU_INTERN_2026_TEAM11_JAVA\backend\src\main\java\com\wealthwise\service\SIPService.java
+C:\Users\HP\wealthwise-project\VTU_INTERN_2026_TEAM11_JAVA\backend\src\main\java\com\wealthwise\controller\NavController.java
+C:\Users\HP\wealthwise-project\VTU_INTERN_2026_TEAM11_JAVA\backend\src\main\java\com\wealthwise\repository\InvestmentLotRepository.java
+C:\Users\HP\wealthwise-project\VTU_INTERN_2026_TEAM11_JAVA\backend\src\main\java\com\wealthwise\controller\SchemeController.java
+C:\Users\HP\wealthwise-project\VTU_INTERN_2026_TEAM11_JAVA\backend\src\main\java\com\wealthwise\security\package-info.java
+C:\Users\HP\wealthwise-project\VTU_INTERN_2026_TEAM11_JAVA\backend\src\main\java\com\wealthwise\WealthWiseApplication.java
+C:\Users\HP\wealthwise-project\VTU_INTERN_2026_TEAM11_JAVA\backend\src\main\java\com\wealthwise\controller\AuthController.java
+C:\Users\HP\wealthwise-project\VTU_INTERN_2026_TEAM11_JAVA\backend\src\main\java\com\wealthwise\dto\SIPComparisonResponse.java
+C:\Users\HP\wealthwise-project\VTU_INTERN_2026_TEAM11_JAVA\backend\src\main\java\com\wealthwise\model\User.java

@@ -3,6 +3,7 @@ com\wealthwise\repository\CasUploadLogRepository.class
 com\wealthwise\security\package-info.class
 com\wealthwise\model\Transaction.class
 com\wealthwise\service\CasPdfParserService$FolioBlock.class
+com\wealthwise\controller\SIPController.class
 com\wealthwise\service\CasPdfParserService.class
 com\wealthwise\service\CasPdfParserService$TxRow.class
 com\wealthwise\controller\SchemeController.class
@@ -16,8 +17,10 @@ com\wealthwise\parser\NavAllTxtParser.class
 com\wealthwise\repository\InvestmentLotRepository.class
 com\wealthwise\controller\TransactionController.class
 com\wealthwise\repository\TransactionRepository.class
+com\wealthwise\dto\SIPComparisonResponse.class
 com\wealthwise\model\Scheme.class
 com\wealthwise\service\AnalyticsService.class
+com\wealthwise\dto\TopUpResponse.class
 com\wealthwise\model\CasUploadLog$Status.class
 com\wealthwise\security\JwtService.class
 com\wealthwise\model\CasUploadLog.class
@@ -33,7 +36,9 @@ com\wealthwise\model\User.class
 com\wealthwise\security\SecurityConfig.class
 com\wealthwise\controller\ReturnsController.class
 com\wealthwise\service\AuthService.class
+com\wealthwise\service\SIPService.class
 com\wealthwise\WealthWiseApplication.class
 com\wealthwise\service\NavService.class
 com\wealthwise\service\ReturnsService$CashFlow.class
 com\wealthwise\repository\UserRepository.class
+com\wealthwise\dto\SIPDashboardResponse.class
