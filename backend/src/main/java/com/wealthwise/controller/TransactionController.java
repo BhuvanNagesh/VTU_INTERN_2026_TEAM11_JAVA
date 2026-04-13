@@ -6,7 +6,9 @@ import com.wealthwise.security.JwtService;
 import com.wealthwise.service.CasPdfParserService;
 import com.wealthwise.service.TransactionService;
 import com.wealthwise.service.TransactionService.TransactionRequest;
+import io.jsonwebtoken.JwtException;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -46,6 +48,15 @@ public class TransactionController {
             @RequestHeader("Authorization") String authHeader,
             @RequestBody TransactionService.BulkSipRequest request) {
         try {
+            // Cap bulk SIP range to 120 months (10 years) to prevent abuse
+            if (request.getStartDate() != null && request.getEndDate() != null) {
+                long months = java.time.temporal.ChronoUnit.MONTHS.between(
+                    request.getStartDate(), request.getEndDate());
+                if (months > 120) {
+                    return ResponseEntity.badRequest().body(
+                        Map.of("error", "Bulk SIP range cannot exceed 120 months (10 years). Requested: " + months + " months."));
+                }
+            }
             Long userId = extractUserId(authHeader);
             List<Transaction> txns = transactionService.bulkCreateSip(request, userId);
             return ResponseEntity.ok(Map.of("message", "Successfully generated " + txns.size() + " SIP transactions", "transactions", txns));
@@ -145,13 +156,22 @@ public class TransactionController {
 
     // ─── Helper ──────────────────────────────────────────────────────────────
 
+    /**
+     * Extracts userId from Bearer JWT. Throws 401-mapped exception on invalid/expired token.
+     * JwtException (invalid signature, expired, malformed) is caught here so it returns
+     * HTTP 401 instead of leaking a 500 with internal class names.
+     */
     private Long extractUserId(String authHeader) {
         if (authHeader == null || !authHeader.startsWith("Bearer "))
-            throw new RuntimeException("Missing or invalid Authorization header");
+            throw new SecurityException("Missing or invalid Authorization header");
         String token = authHeader.substring(7);
-        String email = jwtService.extractEmail(token);
-        return userRepository.findByEmail(email)
-            .orElseThrow(() -> new RuntimeException("User not found"))
-            .getId();
+        try {
+            String email = jwtService.extractEmail(token);
+            return userRepository.findByEmail(email)
+                .orElseThrow(() -> new SecurityException("User not found"))
+                .getId();
+        } catch (JwtException e) {
+            throw new SecurityException("Token invalid or expired — please log in again");
+        }
     }
 }

@@ -70,7 +70,8 @@ const MarketSection = () => {
                         <br />right now
                     </h2>
                     <p className="section-sub">
-                        Real-time market movers, updated every minute
+                        Illustrative market data — for display purposes only.
+                        <span style={{ marginLeft: 6, fontSize: 11, color: '#FFB247', fontWeight: 600 }}>Sample / Not Live</span>
                     </p>
                 </motion.div>
 
@@ -136,6 +137,9 @@ const MarketSection = () => {
                         <button className="view-all-btn">
                             View all stocks <ChevronRight size={14} />
                         </button>
+                        <p style={{ fontSize: 10, color: '#666', textAlign: 'center', marginTop: 4, padding: '0 16px' }}>
+                            ⚠ Prices shown are indicative sample data and do not reflect live market prices.
+                        </p>
                     </motion.div>
 
                     {/* Right side: category cards */}
@@ -158,8 +162,8 @@ const MarketSection = () => {
                                 sub: 'Options & Futures with advanced charts',
                                 color: '#FF6B6B',
                                 metrics: [
-                                    { label: 'PCR Ratio', val: '0.84' },
-                                    { label: 'VIX', val: '14.2', color: '#FF6B6B' },
+                                    { label: 'PCR Ratio', val: '0.84 (sample)' },
+                                    { label: 'VIX', val: '14.2 (sample)', color: '#FF6B6B' },
                                 ],
                                 cta: 'Trade Now',
                             },
@@ -169,8 +173,8 @@ const MarketSection = () => {
                                 sub: 'Apply for upcoming IPOs instantly',
                                 color: '#FFB74D',
                                 metrics: [
-                                    { label: 'Open IPOs', val: '3' },
-                                    { label: 'Upcoming', val: '12+', color: '#FFB74D' },
+                                    { label: 'Open IPOs', val: '— (live soon)' },
+                                    { label: 'Upcoming', val: '— (live soon)', color: '#FFB74D' },
                                 ],
                                 cta: 'Apply IPO',
                             },

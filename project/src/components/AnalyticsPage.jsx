@@ -55,11 +55,45 @@ export default function AnalyticsPage() {
     if (portfolioRiskLabel?.includes('Low')) riskBadgeClass = 'risk-Low';
     if (portfolioRiskLabel?.includes('High')) riskBadgeClass = 'risk-High';
 
+    /**
+     * Radar chart data — all axes scaled 0-100 using Indian MF benchmarks.
+     *
+     * Volatility (σ): typical Indian equity MF σ range = 8-25%
+     *   ≤8% → 100, 8-15% → 70, 15-22% → 40, >22% → 10
+     * Sharpe: anything above 1.0 is excellent for Indian MFs
+     *   <0 → 0, 0-0.5 → 30, 0.5-1.0 → 60, 1-1.5 → 80, >1.5 → 100
+     * Drawdown safety: drawdown is negative %
+     *   0% drawdown → 100, -10% → 70, -20% → 40, -30% → 10
+     */
+    const volatilityScore = (() => {
+      const v = volatilityPct || 0;
+      if (v <= 8)  return 100;
+      if (v <= 15) return 70;
+      if (v <= 22) return 40;
+      return 10;
+    })();
+    const sharpeScore = (() => {
+      const s = sharpeRatio || 0;
+      if (s < 0)    return 0;
+      if (s < 0.5)  return 30;
+      if (s < 1.0)  return 60;
+      if (s < 1.5)  return 80;
+      return 100;
+    })();
+    const drawdownScore = (() => {
+      const d = maxDrawdownPct || 0; // d is negative %
+      if (d >= 0)   return 100;
+      if (d >= -10) return 70;
+      if (d >= -20) return 40;
+      if (d >= -30) return 10;
+      return 5;
+    })();
+
     const radarData = [
       { subject: 'Diversification', A: Math.min(100, (diversificationScore || 0) * 10) },
-      { subject: 'Volatility Ctrl', A: Math.max(0, 100 - (volatilityPct || 0) * 3) },
-      { subject: 'Sharpe (Risk-Adj)', A: Math.min(100, (sharpeRatio || 0) * 50) },
-      { subject: 'Drawdown Safety', A: Math.max(0, 100 + (maxDrawdownPct || 0)) },
+      { subject: 'Volatility Ctrl', A: volatilityScore },
+      { subject: 'Sharpe (Risk-Adj)', A: sharpeScore },
+      { subject: 'Drawdown Safety', A: drawdownScore },
     ];
 
     return (
@@ -111,10 +145,12 @@ export default function AnalyticsPage() {
             <h3 className="card-title">Advanced Metrics</h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', flex: 1, justifyContent: 'center' }}>
               {[
-                { label: 'Annualized Volatility', value: `${volatilityPct}%`, color: '#fff' },
+                { label: 'Return Std. Deviation (σ)', value: `${volatilityPct}%`, color: '#fff',
+                  note: 'Population std-dev of per-transaction returns. Not annualized.' },
                 { label: 'Sharpe Ratio', value: sharpeRatio, color: sharpeRatio >= 1 ? '#00D09C' : '#FFB247',
                   note: sharpeRatio >= 1.5 ? 'Excellent' : sharpeRatio >= 1 ? 'Good' : sharpeRatio >= 0.5 ? 'Adequate' : 'Poor' },
-                { label: 'Max Drawdown', value: `${maxDrawdownPct}%`, color: '#FF4D4D' },
+                { label: 'Max Drawdown', value: `${maxDrawdownPct}%`, color: '#FF4D4D',
+                  note: 'Peak-to-trough decline in portfolio value' },
               ].map(({ label, value, color, note }) => (
                 <div key={label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <span style={{ color: '#A0A0B0', fontSize: '13px' }}>{label}</span>
@@ -169,13 +205,19 @@ export default function AnalyticsPage() {
           {analysis?.length > 0 ? (
             <div style={{ overflowX: 'auto' }}>
               <table className="sip-comparison-table">
-                <thead><tr><th>Fund</th><th>SIP Value (actual)</th><th>Lumpsum Value (hypothetical)</th><th>Difference</th><th>Winner</th></tr></thead>
+                <thead><tr><th>Fund</th><th>SIP Actual Value</th><th>SIP Return %</th><th>Lumpsum Value (hypothetical)</th><th>Lumpsum Return %</th><th>Difference</th><th>Winner</th></tr></thead>
                 <tbody>
                   {analysis.map((a, i) => (
                     <tr key={i}>
                       <td style={{ fontWeight: 600, maxWidth: '200px', wordBreak: 'break-word' }}>{a.fundName}</td>
                       <td>{formatCurrency(a.sipValue)}</td>
+                      <td style={{ color: (a.sipAbsReturn ?? 0) >= 0 ? '#00D09C' : '#FF4D4D', fontWeight: 600 }}>
+                        {a.sipAbsReturn != null ? ((a.sipAbsReturn >= 0 ? '+' : '') + parseFloat(a.sipAbsReturn).toFixed(2) + '%') : '—'}
+                      </td>
                       <td>{formatCurrency(a.lumpsumValue)}</td>
+                      <td style={{ color: (a.lumpsumAbsReturn ?? 0) >= 0 ? '#00D09C' : '#FF4D4D', fontWeight: 600 }}>
+                        {a.lumpsumAbsReturn != null ? ((a.lumpsumAbsReturn >= 0 ? '+' : '') + parseFloat(a.lumpsumAbsReturn).toFixed(2) + '%') : '—'}
+                      </td>
                       <td style={{ color: a.difference >= 0 ? '#00D09C' : '#FF4D4D', fontWeight: 700 }}>
                         {a.difference >= 0 ? '+' : ''}{formatCurrency(a.difference)}
                       </td>
@@ -205,7 +247,7 @@ export default function AnalyticsPage() {
         <div className="intel-card glassmorphism" style={{ marginBottom: '24px' }}>
           <div style={{ display: 'flex', gap: '24px', alignItems: 'flex-start' }}>
             <div style={{ flex: 1 }}>
-              <h3 className="card-title"><Network size={16} color="#00F298" /> Portfolio Overlap Analysis (MVP)</h3>
+              <h3 className="card-title"><Network size={16} color="#00F298" /> Portfolio Overlap Analysis</h3>
               <p style={{ fontSize: '13px', color: '#A0A0B0', lineHeight: 1.6 }}>
                 Fund overlap occurs when multiple funds hold the same underlying stocks, reducing true diversification. 
                 Overlap is estimated via SEBI category matching — funds in the same category typically share <strong>40-55% of their top holdings</strong>.
@@ -292,6 +334,24 @@ export default function AnalyticsPage() {
             {activeTab === 'overlap' && renderOverlapTab()}
           </AnimatePresence>
         )}
+
+        {/* SEBI Mandatory Risk Disclosure */}
+        <div style={{
+          marginTop: 32, padding: '12px 16px',
+          background: 'rgba(255,193,7,0.06)',
+          border: '1px solid rgba(255,193,7,0.18)',
+          borderRadius: 10,
+          fontSize: 11,
+          color: '#A0A0B0',
+          lineHeight: 1.6
+        }}>
+          <span style={{ color: '#FFD700', fontWeight: 700, marginRight: 6 }}>⚠ Regulatory Disclosure:</span>
+          Mutual fund investments are subject to market risks. Past performance does not guarantee future results.
+          Risk scores, Sharpe ratios, volatility, and SIP projections shown here are calculated from historical data and assumed
+          return rates — actual returns may vary significantly. This platform is for informational and portfolio-tracking purposes only
+          and does not constitute investment advice. Please read all scheme-related documents carefully before investing.
+        </div>
+
       </div>
 
     </div>

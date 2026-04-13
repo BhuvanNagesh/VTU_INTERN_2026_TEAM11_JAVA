@@ -15,6 +15,7 @@ import DashboardPage from './components/DashboardPage';
 import TransactionsPage from './components/TransactionsPage';
 import ProfilePage from './components/ProfilePage';
 import AnalyticsPage from './components/AnalyticsPage';
+import ErrorBoundary from './components/ErrorBoundary';
 import './App.css';
 
 // Landing page (existing)
@@ -31,9 +32,34 @@ function LandingPage({ scrollY, openAuth }) {
   );
 }
 
-// Protected route wrapper
+// Protected route wrapper — guards against expired JWT tokens
 function ProtectedRoute({ children }) {
-  const { user, loading } = useAuth();
+  const { user, getToken, signOut, loading } = useAuth();
+
+  // Check actual stored JWT expiry on every render while user is logged in
+  useEffect(() => {
+    if (!user) return; // not logged in, nothing to check
+    const token = getToken();
+    if (!token) { signOut(); return; }
+    try {
+      // JWT payload is base64-encoded: header.payload.signature
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      const expMs = payload.exp * 1000; // exp is in seconds
+      if (Date.now() >= expMs) {
+        // Token already expired — sign out immediately
+        signOut();
+        return;
+      }
+      // Schedule auto-logout exactly when the token expires
+      const msUntilExpiry = expMs - Date.now();
+      const timer = setTimeout(() => signOut(), msUntilExpiry);
+      return () => clearTimeout(timer);
+    } catch {
+      // Malformed token — force logout
+      signOut();
+    }
+  }, [user, getToken, signOut]);
+
   if (loading) return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: '#0A0A0F' }}>
       <div style={{ width: 40, height: 40, border: '3px solid rgba(0,208,156,0.2)', borderTopColor: '#00D09C', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
@@ -97,7 +123,9 @@ function App() {
     <BrowserRouter>
       <ThemeProvider>
         <AuthProvider>
-          <AppContent />
+          <ErrorBoundary>
+            <AppContent />
+          </ErrorBoundary>
         </AuthProvider>
       </ThemeProvider>
     </BrowserRouter>

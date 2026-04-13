@@ -205,7 +205,7 @@ const MutualFundSection = () => {
                         <br />across SEBI categories
                     </h2>
                     <p className="section-sub">
-                        NAV updates every few seconds · Star ratings by CRISIL / Value Research
+                        Live NAV from mfapi.in · Star ratings indicative — for reference only
                     </p>
                 </motion.div>
 

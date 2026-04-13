@@ -114,8 +114,8 @@ function AnimatedCounter({ value, isCurrency = true, colorClass = '' }) {
 const CHART_INFO = {
   portfolioGrowth: {
     title: 'Portfolio Growth',
-    desc: 'Tracks the total market value of your entire portfolio over time. The Y-axis shows your combined holdings value (units × NAV) across all funds. Rises indicate market gains or new investments.',
-    metric: 'Total Current Value = Σ (Units × NAV) for all funds',
+    desc: 'Tracks the total market value of your entire portfolio over time, computed from actual historical NAV data. The Y-axis shows your combined holdings value (units × NAV per fund) at each month-end. Rises reflect market appreciation; steps up reflect new investments.',
+    metric: 'Value = Σ(Units held × Historical NAV on month-end) across all funds',
   },
   investedVsCurrent: {
     title: 'Invested vs Current Value',
@@ -148,14 +148,14 @@ const CHART_INFO = {
     metric: 'NAV = Net Asset Value per unit (fetched from api.mfapi.in)',
   },
   cagrTrend: {
-    title: 'Portfolio CAGR Trend',
-    desc: 'Shows the Compound Annual Growth Rate of your portfolio value over time. CAGR smooths out volatility to give you a single annualized growth number from the start of your investment journey.',
-    metric: 'CAGR = ((Current Value / Invested)^(1/Years) − 1) × 100',
+    title: 'Cumulative Return %',
+    desc: 'Shows how much your total invested capital has grown (or shrunk) over time as a simple percentage. Because your portfolio has multiple SIP/lumpsum deposits at different dates, CAGR cannot be meaningfully applied — absolute return % is the correct and transparent metric here. Green line = profit territory; red = loss.',
+    metric: 'Cumulative Return % = ((Portfolio Value − Capital Invested) / Capital Invested) × 100',
   },
   rollingReturns: {
-    title: 'Rolling Returns',
-    desc: 'Displays 3-month rolling returns — the percentage gain/loss over every consecutive 3-month window. Helps you see consistency of returns rather than just point-to-point performance.',
-    metric: 'Rolling Return = ((Value[t] − Value[t−3]) / Value[t−3]) × 100',
+    title: 'Rolling Returns (3-Month)',
+    desc: 'Shows the 3-month momentum of your portfolio by comparing the return ratio at each point against the ratio 3 months prior. A positive bar means your portfolio performed well in that 3-month window; negative means it declined. This strips out the distortion of new deposits by working on ratios.',
+    metric: 'Rolling = ((value[t]/invested[t] − value[t−3]/invested[t−3]) / value[t−3]/invested[t−3]) × 100',
   },
   drawdownTrend: {
     title: 'Drawdown Trend',
@@ -264,7 +264,7 @@ const ALL_CHARTS = [
   { id: 'fundPerformance', label: 'Fund Performance Comparison' },
   { id: 'monthlyInvestments', label: 'Monthly Investments' },
   { id: 'navTrend', label: 'Funds NAV Trend' },
-  { id: 'cagrTrend', label: 'Portfolio CAGR Trend' },
+  { id: 'cagrTrend', label: 'Cumulative Return %' },
   { id: 'rollingReturns', label: 'Rolling Returns' },
   { id: 'drawdownTrend', label: 'Drawdown Trend' },
 ];
@@ -709,9 +709,12 @@ function FundsNavTrendChart({ holdings }) {
 }
 
 // ═══════════════════════════════════════════════════════════════
-//  CHART: PORTFOLIO CAGR TREND (LINE)
+//  CHART: CUMULATIVE RETURN % OVER TIME (replaces incorrect CAGR trend)
+//  NOTE: CAGR requires a single investment at t=0 which is not the case
+//  for SIP portfolios. We display absolute return % = (value-invested)/invested×100
+//  which is factually accurate for any number of transactions.
 // ═══════════════════════════════════════════════════════════════
-function CagrTrendChart({ growthData }) {
+function AbsoluteReturnChart({ growthData }) {
   const [range, setRange] = useState('ALL');
 
   const chartData = useMemo(() => {
@@ -719,32 +722,39 @@ function CagrTrendChart({ growthData }) {
     const filtered = filterByRange(growthData, range);
     if (!filtered?.length || filtered.length < 2) return [];
 
-    const firstDate = parseDate(filtered[0].month) || new Date();
-
     return filtered
       .map(d => {
         const val = parseFloat(d.value) || 0;
         const inv = parseFloat(d.invested) || 1;
-        const dt = parseDate(d.month) || new Date();
-        const years = (dt - firstDate) / (365.25 * 24 * 60 * 60 * 1000);
-        // CAGR is meaningless for periods < 3 months
-        if (years < 0.25) return null;
-        // Use value/invested ratio to strip out SIP deposit effect
-        const gainRatio = val / inv;
-        const cagr = (Math.pow(gainRatio, 1 / years) - 1) * 100;
-        return { label: shortMonth(d.month), cagr: isFinite(cagr) ? cagr : 0 };
+        // Absolute return % = (current market value − cumulative invested) / invested × 100
+        // This is always mathematically correct regardless of SIP/lumpsum mix
+        const absReturn = ((val - inv) / inv) * 100;
+        return {
+          label: shortMonth(d.month),
+          absReturn: isFinite(absReturn) ? parseFloat(absReturn.toFixed(2)) : 0,
+          value: val,
+          invested: inv,
+        };
       })
       .filter(Boolean);
   }, [growthData, range]);
 
-  if (!chartData.length) return <div className="chart-empty">Insufficient data for CAGR trend</div>;
+  if (!chartData.length) return <div className="chart-empty">Insufficient data for return trend</div>;
+
+  const latestReturn = chartData[chartData.length - 1]?.absReturn ?? 0;
+  const isPositive = latestReturn >= 0;
 
   return (
     <>
       <div className="chart-card-header">
         <div>
-          <h3 className="chart-title">Portfolio CAGR Trend <InfoTooltip chartId="cagrTrend" /></h3>
-          <span className="chart-subtitle">Annualized performance trend</span>
+          <h3 className="chart-title">
+            Cumulative Return %
+            <InfoTooltip chartId="cagrTrend" />
+          </h3>
+          <span className="chart-subtitle" style={{ color: isPositive ? '#44D7B6' : '#FF4D4D' }}>
+            {isPositive ? '+' : ''}{latestReturn.toFixed(2)}% total return on invested capital
+          </span>
         </div>
         <RangePills value={range} onChange={setRange} />
       </div>
@@ -752,14 +762,22 @@ function CagrTrendChart({ growthData }) {
         <LineChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
           <CartesianGrid stroke="rgba(255,255,255,0.04)" vertical={false} />
           <XAxis dataKey="label" tick={{ fontSize: 10, fill: '#6B6B7B' }} axisLine={false} tickLine={false} />
-          <YAxis tick={{ fontSize: 10, fill: '#6B6B7B' }} axisLine={false} tickLine={false} tickFormatter={v => v.toFixed(1) + '%'} />
+          <YAxis tick={{ fontSize: 10, fill: '#6B6B7B' }} axisLine={false} tickLine={false}
+            tickFormatter={v => v.toFixed(1) + '%'} />
           <Tooltip content={<CustomTooltip formatter={v => v.toFixed(2) + '%'} />} />
-          <Line type="monotone" dataKey="cagr" name="CAGR %" stroke="#4D8AF0" strokeWidth={2} dot={false} />
+          <ReferenceLine y={0} stroke="rgba(255,255,255,0.1)" strokeDasharray="4 2" />
+          <Line
+            type="monotone" dataKey="absReturn" name="Return %"
+            stroke={isPositive ? '#44D7B6' : '#FF4D4D'}
+            strokeWidth={2} dot={false}
+          />
         </LineChart>
       </ResponsiveContainer>
     </>
   );
 }
+
+
 
 // ═══════════════════════════════════════════════════════════════
 //  CHART: ROLLING RETURNS (LINE)
@@ -788,7 +806,25 @@ function RollingReturnsChart({ growthData }) {
     return result;
   }, [growthData, range]);
 
-  if (!chartData.length) return <div className="chart-empty">Insufficient data for rolling returns</div>;
+  if (!chartData.length) return (
+    <div className="chart-empty" style={{ flexDirection: 'column', gap: 12 }}>
+      <span>Not enough data for 3-month rolling returns in this range</span>
+      {range !== 'ALL' && (
+        <button
+          onClick={() => setRange('ALL')}
+          style={{
+            marginTop: 4, padding: '6px 18px',
+            background: 'rgba(140,82,255,0.15)',
+            border: '1px solid rgba(140,82,255,0.4)',
+            borderRadius: 20, color: '#8C52FF',
+            fontSize: 12, cursor: 'pointer', fontWeight: 600,
+          }}
+        >
+          ← View All Time
+        </button>
+      )}
+    </div>
+  );
 
   return (
     <>
@@ -991,22 +1027,9 @@ export default function DashboardPage() {
       if (firstNonZero < 0) firstNonZero = 0;
       return tl.slice(firstNonZero);
     }
-    if (!data?.holdings) return [];
-    const invested = parseFloat(data.totalInvested) || 0;
-    const current = parseFloat(data.totalCurrentValue) || 0;
-    if (!invested) return [];
-    // Build fallback with real parseable dates so range filtering works
-    const now = new Date();
-    const points = 7;
-    return Array.from({ length: points }, (_, i) => {
-      const d = new Date(now.getFullYear(), now.getMonth() - (points - 1 - i), 1);
-      const progress = i / (points - 1);
-      return {
-        month: d.toISOString().slice(0, 10),
-        invested: invested * (0.4 + 0.6 * progress),
-        value: invested * (0.4 + 0.6 * progress) * (1 + (current / invested - 1) * progress),
-      };
-    });
+    // Return empty — charts will show their "Add transactions" empty state.
+    // We never synthesise fake data points.
+    return [];
   }, [data]);
 
   const isUp = data && parseFloat(data.totalGainLoss) >= 0;
@@ -1183,9 +1206,10 @@ export default function DashboardPage() {
             {isChartVisible('cagrTrend') && (
               <motion.div className="chart-card"
                 initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
-                <CagrTrendChart growthData={growthData} />
+                <AbsoluteReturnChart growthData={growthData} />
               </motion.div>
             )}
+
 
             {isChartVisible('rollingReturns') && (
               <motion.div className="chart-card"

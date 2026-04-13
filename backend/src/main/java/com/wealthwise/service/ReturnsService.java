@@ -26,6 +26,7 @@ public class ReturnsService {
     @Autowired private InvestmentLotRepository lotRepo;
     @Autowired private SchemeRepository schemeRepo;
     @Autowired private TransactionService transactionService;
+    @Autowired private NavService navService;
 
     // ─── Absolute Return ─────────────────────────────────────────────────────
 
@@ -267,10 +268,13 @@ public class ReturnsService {
             if (type == null) continue;
 
             if (isPurchase(t)) {
+                // DIVIDEND_REINVEST excluded: it's an internal NAV event, not investor cash outflow.
+                // Including it would overstate cash deployed and understate XIRR.
                 flows.add(new CashFlow(t.getTransactionDate(), t.getAmount().negate()));
             } else if (isRedemption(t) || "DIVIDEND_PAYOUT".equals(type)) {
                 flows.add(new CashFlow(t.getTransactionDate(), t.getAmount()));
             }
+            // DIVIDEND_REINVEST, REVERSAL, STP_IN/OUT are handled separately in lot tracking
         }
         if (currentValue != null && currentValue.compareTo(BigDecimal.ZERO) > 0) {
             flows.add(new CashFlow(LocalDate.now(), currentValue));
@@ -280,90 +284,156 @@ public class ReturnsService {
     }
 
     /**
-     * Builds a real monthly growth timeline from actual transaction dates.
-     * Returns list of {month, invested, value} where:
-     *   invested = cumulative amount put in up to that month
-     *   value    = estimated current value (invested * current/totalInvested ratio)
-     * This replaces the fake simulated curve in the frontend.
+     * Builds an accurate monthly growth timeline from actual transaction history.
+     * For each month:
+     *   invested = cumulative amount put in up to that month (exact)
+     *   value    = Σ(units_held × actual_NAV_on_month_end) across all schemes
+     *
+     * NAV history is fetched via NavService (7-day cached) — no estimates or ratios.
+     * Falls back to invested amount only when NAV data is genuinely unavailable.
      */
     private List<Map<String, Object>> buildGrowthTimeline(
             List<Transaction> txns, List<Map<String, Object>> holdings) {
         if (txns.isEmpty()) return List.of();
 
-        // Compute total invested and return ratio
-        BigDecimal totalInvested = holdings.stream()
-            .map(h -> (BigDecimal) h.getOrDefault("investedAmount", BigDecimal.ZERO))
-            .reduce(BigDecimal.ZERO, BigDecimal::add);
-        BigDecimal totalCurrent = holdings.stream()
-            .map(h -> (BigDecimal) h.getOrDefault("currentValue", BigDecimal.ZERO))
-            .reduce(BigDecimal.ZERO, BigDecimal::add);
+        // ── 1. Collect all unique scheme codes ─────────────────────────────────
+        Set<String> schemeCodes = new HashSet<>();
+        for (Transaction t : txns) {
+            if (t.getSchemeAmfiCode() != null) schemeCodes.add(t.getSchemeAmfiCode());
+        }
 
-        // If current value is still zero (all NAVs missing), use invested as proxy
-        if (totalCurrent.compareTo(BigDecimal.ZERO) == 0) totalCurrent = totalInvested;
+        // ── 2. Pre-fetch full NAV histories (7-day cache in NavService) ─────────
+        Map<String, Map<String, BigDecimal>> navHistories = new HashMap<>();
+        for (String code : schemeCodes) {
+            try {
+                List<Map<String, String>> history = navService.getHistoricalNavs(code);
+                Map<String, BigDecimal> navMap = new HashMap<>();
+                for (Map<String, String> entry : history) {
+                    String d = entry.getOrDefault("date", "");
+                    String n = entry.getOrDefault("nav", "");
+                    if (!d.isEmpty() && !n.isEmpty()) {
+                        try { navMap.put(d, new BigDecimal(n)); } catch (Exception ignored) {}
+                    }
+                }
+                navHistories.put(code, navMap);
+            } catch (Exception e) {
+                log.warning("[TIMELINE] NAV fetch failed for " + code + ": " + e.getMessage());
+                navHistories.put(code, new HashMap<>());
+            }
+        }
 
-        double returnRatio = totalInvested.compareTo(BigDecimal.ZERO) > 0
-            ? totalCurrent.divide(totalInvested, 8, RoundingMode.HALF_UP).doubleValue()
-            : 1.0;
-
-        // Collect monthly invested totals starting from first transaction date
+        // ── 3. Sort transactions chronologically ───────────────────────────────
         List<Transaction> sorted = new ArrayList<>(txns);
         sorted.sort(Comparator.comparing(Transaction::getTransactionDate));
 
         LocalDate first = sorted.get(0).getTransactionDate();
         LocalDate now = LocalDate.now();
-        LocalDate cursor = first.withDayOfMonth(1);
-
-        // Show from first transaction date, capped at 60 months for UI legibility
         LocalDate maxStart = now.minusMonths(59).withDayOfMonth(1);
-        LocalDate start = cursor.isBefore(maxStart) ? maxStart : cursor;
+        LocalDate windowStart = first.withDayOfMonth(1).isBefore(maxStart)
+            ? maxStart : first.withDayOfMonth(1);
 
-        Map<String, BigDecimal> monthlyInvested = new LinkedHashMap<>();
-        for (Transaction t : sorted) {
-            if (!isPurchase(t) || t.getAmount() == null) continue;
-            String key = t.getTransactionDate().getYear() + "-"
-                + String.format("%02d", t.getTransactionDate().getMonthValue());
-            monthlyInvested.merge(key, t.getAmount(), BigDecimal::add);
+        // ── 4. Build unit balances and invested amount for months before window ─
+        Map<String, BigDecimal> unitsHeld = new HashMap<>();
+        BigDecimal cumulativeInvested = BigDecimal.ZERO;
+        int txPointer = 0;
+
+        for (; txPointer < sorted.size(); txPointer++) {
+            Transaction t = sorted.get(txPointer);
+            if (!t.getTransactionDate().isBefore(windowStart)) break;
+            applyTransactionToUnits(t, unitsHeld);
+            if (isPurchase(t) && t.getAmount() != null)
+                cumulativeInvested = cumulativeInvested.add(t.getAmount());
         }
 
-        // Pre-sum all investments that occurred BEFORE the window start (carried forward)
-        BigDecimal cumulative = BigDecimal.ZERO;
-        for (Map.Entry<String, BigDecimal> e : monthlyInvested.entrySet()) {
-            // Parse the key "yyyy-MM" and compare to window start
-            try {
-                String[] parts = e.getKey().split("-");
-                LocalDate monthDate = LocalDate.of(Integer.parseInt(parts[0]),
-                    Integer.parseInt(parts[1]), 1);
-                if (monthDate.isBefore(start)) {
-                    cumulative = cumulative.add(e.getValue());
-                }
-            } catch (Exception ignored) {}
-        }
-
+        // ── 5. Walk month by month ─────────────────────────────────────────────
         List<Map<String, Object>> timeline = new ArrayList<>();
-        cursor = start;
-        while (!cursor.isAfter(now)) {
-            String key = cursor.getYear() + "-" + String.format("%02d", cursor.getMonthValue());
-            BigDecimal added = monthlyInvested.getOrDefault(key, BigDecimal.ZERO);
-            cumulative = cumulative.add(added);
+        LocalDate cursor = windowStart;
 
-            Map<String, Object> point = new LinkedHashMap<>();
+        while (!cursor.isAfter(now)) {
+            LocalDate nextMonth = cursor.plusMonths(1);
+
+            // Apply all transactions falling in this month
+            while (txPointer < sorted.size()
+                    && sorted.get(txPointer).getTransactionDate().isBefore(nextMonth)) {
+                Transaction t = sorted.get(txPointer);
+                applyTransactionToUnits(t, unitsHeld);
+                if (isPurchase(t) && t.getAmount() != null)
+                    cumulativeInvested = cumulativeInvested.add(t.getAmount());
+                txPointer++;
+            }
+
+            // Compute real portfolio value at end of this month using actual NAVs
+            LocalDate monthEnd = cursor.withDayOfMonth(cursor.lengthOfMonth());
+            BigDecimal portfolioValue = computePortfolioValue(unitsHeld, navHistories, monthEnd);
+
+            // Fallback: if NAV data not yet available, use invested as floor
+            if (portfolioValue.compareTo(BigDecimal.ZERO) == 0
+                    && cumulativeInvested.compareTo(BigDecimal.ZERO) > 0) {
+                portfolioValue = cumulativeInvested;
+            }
+
             String label = cursor.getMonth().name().substring(0, 3) + " '"
                 + String.valueOf(cursor.getYear()).substring(2);
+            Map<String, Object> point = new LinkedHashMap<>();
             point.put("month", label);
-            point.put("invested", cumulative.setScale(2, RoundingMode.HALF_UP));
-            // Value grows proportionally with portfolio return ratio
-            double valueDouble = cumulative.doubleValue() * returnRatio;
-            point.put("value", BigDecimal.valueOf(valueDouble).setScale(2, RoundingMode.HALF_UP));
+            point.put("invested", cumulativeInvested.setScale(2, RoundingMode.HALF_UP));
+            point.put("value", portfolioValue.setScale(2, RoundingMode.HALF_UP));
             timeline.add(point);
-            cursor = cursor.plusMonths(1);
+
+            cursor = nextMonth;
         }
         return timeline;
     }
 
+    /** Applies a transaction's unit change to the running unit balance map. */
+    private void applyTransactionToUnits(Transaction t, Map<String, BigDecimal> unitsHeld) {
+        if (t.getUnits() == null || t.getSchemeAmfiCode() == null) return;
+        if (isPurchase(t)) {
+            unitsHeld.merge(t.getSchemeAmfiCode(), t.getUnits(), BigDecimal::add);
+        } else if (isRedemption(t)) {
+            BigDecimal current = unitsHeld.getOrDefault(t.getSchemeAmfiCode(), BigDecimal.ZERO);
+            unitsHeld.put(t.getSchemeAmfiCode(), current.subtract(t.getUnits()).max(BigDecimal.ZERO));
+        }
+    }
+
+    /** Computes Σ(units × actual_NAV) across all holdings using real historical NAV. */
+    private BigDecimal computePortfolioValue(
+            Map<String, BigDecimal> unitsHeld,
+            Map<String, Map<String, BigDecimal>> navHistories,
+            LocalDate date) {
+        BigDecimal total = BigDecimal.ZERO;
+        for (Map.Entry<String, BigDecimal> entry : unitsHeld.entrySet()) {
+            BigDecimal units = entry.getValue();
+            if (units == null || units.compareTo(BigDecimal.ZERO) <= 0) continue;
+            BigDecimal nav = findNavOnOrBefore(navHistories.get(entry.getKey()), date);
+            if (nav != null && nav.compareTo(BigDecimal.ZERO) > 0)
+                total = total.add(units.multiply(nav));
+        }
+        return total;
+    }
+
+    /**
+     * Finds the NAV for a given date (or nearest previous trading day up to 7 days back).
+     * mfapi.in stores dates in dd-MM-yyyy format.
+     */
+    private BigDecimal findNavOnOrBefore(Map<String, BigDecimal> navMap, LocalDate date) {
+        if (navMap == null || navMap.isEmpty()) return null;
+        for (int i = 0; i <= 7; i++) {
+            LocalDate d = date.minusDays(i);
+            String key = String.format("%02d-%02d-%04d",
+                d.getDayOfMonth(), d.getMonthValue(), d.getYear());
+            BigDecimal nav = navMap.get(key);
+            if (nav != null) return nav;
+        }
+        return null;
+    }
+
     private boolean isPurchase(Transaction t) {
         String type = t.getTransactionType();
+        // DIVIDEND_REINVEST deliberately excluded — it's an internal NAV event,
+        // not a cash outflow from the investor. It should not appear in XIRR cash flows.
         return type != null && (type.equals("PURCHASE_LUMPSUM") || type.equals("PURCHASE_SIP")
-            || type.equals("SWITCH_IN") || type.equals("STP_IN") || type.equals("DIVIDEND_REINVEST"));
+            || type.equals("SWITCH_IN") || type.equals("STP_IN"));
     }
 
     private boolean isRedemption(Transaction t) {

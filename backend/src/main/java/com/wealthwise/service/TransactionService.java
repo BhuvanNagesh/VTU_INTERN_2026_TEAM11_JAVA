@@ -409,9 +409,13 @@ public class TransactionService {
             .orElse("WW" + userId + amfiCode);
     }
 
+    /**
+     * Generates a unique transaction reference using UUID to prevent collisions
+     * under concurrent requests (Math.random() + timestamp is not collision-safe).
+     */
     private String generateRef() {
         return "WW" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss"))
-            + String.format("%04d", (int)(Math.random() * 9999));
+            + java.util.UUID.randomUUID().toString().replace("-", "").substring(0, 6).toUpperCase();
     }
 
     // ─── Inner DTO ───────────────────────────────────────────────────────────

@@ -6,9 +6,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.security.SecureRandom;
 import java.time.LocalDateTime;
 import java.util.Optional;
-import java.util.Random;
 
 @Service
 public class AuthService {
@@ -45,18 +45,16 @@ public class AuthService {
 
     public String generateAndSaveOtp(String email) {
         User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("User not found with this email"));
+                .orElseThrow(() -> new RuntimeException("No account found with this email"));
 
-        String otp = String.format("%06d", new Random().nextInt(999999));
-        
+        // Cryptographically secure OTP using SecureRandom (not java.util.Random)
+        String otp = String.format("%06d", new SecureRandom().nextInt(1_000_000));
+
         user.setResetOtp(otp);
-        // EXACTLY 5 MINUTES EXPIRY HERE 👇
-        user.setOtpExpiry(LocalDateTime.now().plusMinutes(5)); 
+        user.setOtpExpiry(LocalDateTime.now().plusMinutes(5));
         userRepository.save(user);
 
-        // Call the EmailService to send the OTP
         emailService.sendOtpEmail(email, otp);
-
         return otp;
     }
 

@@ -1,11 +1,14 @@
 package com.wealthwise.service;
 
+import com.wealthwise.model.NavHistory;
 import com.wealthwise.model.Scheme;
+import com.wealthwise.repository.NavHistoryRepository;
 import com.wealthwise.repository.SchemeRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.CachePut;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
@@ -38,6 +41,9 @@ public class NavService {
 
     @Autowired
     private SchemeRepository schemeRepo;
+
+    @Autowired
+    private NavHistoryRepository navHistoryRepo;
 
     // ─── Latest NAV (24h cache) ───────────────────────────────────────────────
 
@@ -117,23 +123,108 @@ public class NavService {
     // ─── Historical NAV for a specific date ──────────────────────────────────
 
     /**
-     * Get NAV for a specific date. Used in transaction entry when user enters a past date.
-     * History cached for 7 days per scheme.
+     * Returns the full historical NAV list for a scheme.
+     *
+     * Strategy (DB-first write-through cache):
+     *   1. If we have records in nav_history DB table for this scheme → serve from DB
+     *      and asynchronously refresh if data is older than 7 days.
+     *   2. If no DB data → fetch from mfapi.in, persist ALL entries to DB, then return.
+     *
+     * This means historical NAV data survives server restarts and is not
+     * dependent on the in-memory Caffeine cache being warm.
+     *
+     * Returns: list of {"date": "dd-MM-yyyy", "nav": "NNN.NNNN"} maps
      */
     @Cacheable(value = "nav_history", key = "#amfiCode")
     public List<Map<String, String>> getHistoricalNavs(String amfiCode) {
-        log.info("[NAV] Fetching full history for " + amfiCode);
+        // ── Step 1: Try DB first ──────────────────────────────────────────────
+        if (navHistoryRepo.existsByAmfiCode(amfiCode)) {
+            List<NavHistory> dbRows = navHistoryRepo.findByAmfiCodeOrderByNavDateDesc(amfiCode);
+            if (!dbRows.isEmpty()) {
+                // Check if the most recent stored date is within 7 days (fresh enough)
+                LocalDate latestStored = dbRows.get(0).getNavDate();
+                boolean isStale = latestStored.isBefore(LocalDate.now().minusDays(7));
+
+                if (!isStale) {
+                    log.info("[NAV] Serving history from DB for " + amfiCode
+                        + " (" + dbRows.size() + " records, latest: " + latestStored + ")");
+                    return convertDbRowsToApiFormat(dbRows);
+                }
+                // Data is stale — fall through to API fetch to refresh
+                log.info("[NAV] DB data stale for " + amfiCode + ", refreshing from mfapi.in");
+            }
+        }
+
+        // ── Step 2: Fetch from mfapi.in ──────────────────────────────────────
+        log.info("[NAV] Fetching full history from mfapi.in for " + amfiCode);
         try {
             Map<String, Object> apiData = fetchFromMfApi(amfiCode);
             if (apiData != null && apiData.containsKey("data")) {
                 @SuppressWarnings("unchecked")
                 List<Map<String, String>> data = (List<Map<String, String>>) apiData.get("data");
+                // Persist to DB asynchronously (best-effort, non-blocking)
+                persistNavHistoryToDB(amfiCode, data);
                 return data;
             }
         } catch (Exception e) {
             log.warning("[NAV] History fetch failed for " + amfiCode + ": " + e.getMessage());
+            // Fall through to DB fallback even if stale
+            if (navHistoryRepo.existsByAmfiCode(amfiCode)) {
+                List<NavHistory> dbRows = navHistoryRepo.findByAmfiCodeOrderByNavDateDesc(amfiCode);
+                if (!dbRows.isEmpty()) {
+                    log.warning("[NAV] Using stale DB data for " + amfiCode + " as fallback");
+                    return convertDbRowsToApiFormat(dbRows);
+                }
+            }
         }
         return Collections.emptyList();
+    }
+
+    /**
+     * Converts DB NavHistory rows to the {date, nav} map format used throughout the backend.
+     * mfapi.in returns dates as dd-MM-yyyy, so we format the same way.
+     */
+    private List<Map<String, String>> convertDbRowsToApiFormat(List<NavHistory> rows) {
+        DateTimeFormatter fmt = DateTimeFormatter.ofPattern("dd-MM-yyyy");
+        List<Map<String, String>> result = new ArrayList<>();
+        for (NavHistory row : rows) {
+            Map<String, String> entry = new HashMap<>();
+            entry.put("date", row.getNavDate().format(fmt));
+            entry.put("nav", row.getNavValue().toPlainString());
+            result.add(entry);
+        }
+        return result;
+    }
+
+    /**
+     * Persists NAV history entries to the DB using upsert-by-ignore.
+     * Uses a simple loop with existsByAmfiCodeAndNavDate check to avoid duplicates.
+     * Runs in the same transaction context; skips entries that already exist.
+     */
+    @Transactional
+    public void persistNavHistoryToDB(String amfiCode, List<Map<String, String>> data) {
+        if (data == null || data.isEmpty()) return;
+        DateTimeFormatter fmt = DateTimeFormatter.ofPattern("dd-MM-yyyy");
+        int saved = 0;
+        for (Map<String, String> entry : data) {
+            String dateStr = entry.getOrDefault("date", "");
+            String navStr  = entry.getOrDefault("nav", "");
+            if (dateStr.isEmpty() || navStr.isEmpty()) continue;
+            try {
+                LocalDate navDate = LocalDate.parse(dateStr, fmt);
+                BigDecimal navVal = new BigDecimal(navStr);
+                // Skip if already stored (upsert-on-conflict-ignore)
+                if (!navHistoryRepo.findByAmfiCodeAndNavDate(amfiCode, navDate).isPresent()) {
+                    navHistoryRepo.save(new NavHistory(amfiCode, navDate, navVal));
+                    saved++;
+                }
+            } catch (Exception e) {
+                // Skip malformed entries silently
+            }
+        }
+        if (saved > 0) {
+            log.info("[NAV] Persisted " + saved + " new NAV records to DB for " + amfiCode);
+        }
     }
 
     /**

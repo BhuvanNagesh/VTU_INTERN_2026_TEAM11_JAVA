@@ -3,7 +3,9 @@ package com.wealthwise.controller;
 import com.wealthwise.repository.UserRepository;
 import com.wealthwise.security.JwtService;
 import com.wealthwise.service.ReturnsService;
+import io.jsonwebtoken.JwtException;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -25,10 +27,11 @@ public class ReturnsController {
     public ResponseEntity<?> portfolio(@RequestHeader("Authorization") String authHeader) {
         try {
             Long userId = extractUserId(authHeader);
-            Map<String, Object> result = returnsService.getPortfolioReturns(userId);
-            return ResponseEntity.ok(result);
+            return ResponseEntity.ok(returnsService.getPortfolioReturns(userId));
+        } catch (SecurityException e) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", e.getMessage()));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.badRequest().body(Map.of("error", sanitize(e.getMessage())));
         }
     }
 
@@ -44,8 +47,10 @@ public class ReturnsController {
             Long userId = extractUserId(authHeader);
             Map<String, Object> result = returnsService.getSchemeReturns(userId, amfiCode);
             return ResponseEntity.ok(result);
+        } catch (SecurityException e) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", e.getMessage()));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.badRequest().body(Map.of("error", sanitize(e.getMessage())));
         }
     }
 
@@ -53,11 +58,21 @@ public class ReturnsController {
 
     private Long extractUserId(String authHeader) {
         if (authHeader == null || !authHeader.startsWith("Bearer "))
-            throw new RuntimeException("Missing or invalid Authorization header");
+            throw new SecurityException("Missing or invalid Authorization header");
         String token = authHeader.substring(7);
-        String email = jwtService.extractEmail(token);
-        return userRepository.findByEmail(email)
-            .orElseThrow(() -> new RuntimeException("User not found"))
-            .getId();
+        try {
+            String email = jwtService.extractEmail(token);
+            return userRepository.findByEmail(email)
+                .orElseThrow(() -> new SecurityException("User not found"))
+                .getId();
+        } catch (JwtException e) {
+            throw new SecurityException("Token invalid or expired — please log in again");
+        }
+    }
+
+    private String sanitize(String msg) {
+        if (msg == null) return "An error occurred";
+        return msg.replaceAll("(?i)com\\.\\w+(\\.\\w+)*:\\s*", "")
+                  .replaceAll("(?i)java\\.\\w+(\\.\\w+)*:\\s*", "").trim();
     }
 }

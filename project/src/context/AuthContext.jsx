@@ -14,8 +14,22 @@ export const AuthProvider = ({ children }) => {
         const storedToken = localStorage.getItem('ww_token');
         const storedUser = localStorage.getItem('ww_user');
         if (storedToken && storedUser) {
-            setToken(storedToken);
-            setUser(JSON.parse(storedUser));
+            try {
+                // Validate JWT expiry before trusting the stored session
+                const payload = JSON.parse(atob(storedToken.split('.')[1]));
+                if (payload.exp && Date.now() >= payload.exp * 1000) {
+                    // Token already expired — clear storage and stay logged out
+                    localStorage.removeItem('ww_token');
+                    localStorage.removeItem('ww_user');
+                } else {
+                    setToken(storedToken);
+                    setUser(JSON.parse(storedUser));
+                }
+            } catch {
+                // Malformed token — discard silently
+                localStorage.removeItem('ww_token');
+                localStorage.removeItem('ww_user');
+            }
         }
         setLoading(false);
     }, []);
