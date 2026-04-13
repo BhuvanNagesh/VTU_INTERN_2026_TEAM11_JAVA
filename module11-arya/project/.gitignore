@@ -1,3 +1,0 @@
-node_modules/
-# .env.local overrides local dev settings — keep it out of git
-.env.local
