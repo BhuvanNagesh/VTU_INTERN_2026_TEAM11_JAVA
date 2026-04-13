@@ -1,33 +1,44 @@
+# ─────────────────────────────────────────────────────────
+# GENERAL
+# ─────────────────────────────────────────────────────────
 HELP.md
 target/
 .mvn/wrapper/maven-wrapper.jar
 !**/src/main/**/target/
 !**/src/test/**/target/
 
-### STS ###
-.apt_generated
-.classpath
-.factorypath
-.project
-.settings
-.springBeans
-.sts4-cache
-
-### IntelliJ IDEA ###
-.idea
-*.iws
-*.iml
-*.ipr
-
-### NetBeans ###
-/nbproject/private/
-/nbbuild/
-/dist/
-/nbdist/
-/.nb-gradle/
-build/
-!**/src/main/**/build/
-!**/src/test/**/build/
-
-### VS Code ###
+# ─────────────────────────────────────────────────────────
+# IDE FILES
+# ─────────────────────────────────────────────────────────
 .vscode/
+.idea/
+*.iml
+.classpath
+.project
+.settings/
+
+# ─────────────────────────────────────────────────────────
+# OS FILES
+# ─────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+
+# ─────────────────────────────────────────────────────────
+# JAVA / BUILD FILES
+# ─────────────────────────────────────────────────────────
+*.class
+*.jar
+*.war
+*.ear
+
+# ─────────────────────────────────────────────────────────
+# IMPORTANT (SECURITY - DO NOT PUSH)
+# ─────────────────────────────────────────────────────────
+src/main/resources/application.properties
+src/main/resources/application-local.properties
+
+# ─────────────────────────────────────────────────────────
+# OPTIONAL (LOGS / TEMP)
+# ─────────────────────────────────────────────────────────
+*.log
+*.tmp
