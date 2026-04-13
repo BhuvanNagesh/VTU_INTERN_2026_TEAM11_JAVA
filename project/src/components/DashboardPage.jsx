@@ -552,9 +552,8 @@ function FundPerformanceChart({ holdings }) {
       <div className="chart-card-header">
         <div>
           <h3 className="chart-title">Fund Performance Comparison <InfoTooltip chartId="fundPerformance" /></h3>
-          <span className="chart-subtitle">Trailing returns by fund</span>
+          <span className="chart-subtitle">Absolute return % per holding (all time)</span>
         </div>
-        <RangePills value={range} onChange={setRange} />
       </div>
       <ResponsiveContainer width="100%" height={220}>
         <BarChart data={barData} margin={{ top: 10, right: 10, left: 0, bottom: 40 }}>
@@ -587,7 +586,8 @@ function MonthlyInvestmentsChart({ growthData }) {
     for (let i = 0; i < filtered.length; i++) {
       const inv = parseFloat(filtered[i].invested) || 0;
       const prevInv = i > 0 ? (parseFloat(filtered[i - 1].invested) || 0) : 0;
-      const monthlyFlow = i === 0 ? inv : Math.max(0, inv - prevInv);
+      // First bar: 0 (we don't know investment before the window start)
+      const monthlyFlow = i === 0 ? 0 : Math.max(0, inv - prevInv);
       result.push({ label: shortMonth(filtered[i].month), amount: monthlyFlow });
     }
     return result;
@@ -723,9 +723,10 @@ function AbsoluteReturnChart({ growthData }) {
     if (!filtered?.length || filtered.length < 2) return [];
 
     return filtered
+      .filter(d => parseFloat(d.invested) > 0)
       .map(d => {
         const val = parseFloat(d.value) || 0;
-        const inv = parseFloat(d.invested) || 1;
+        const inv = parseFloat(d.invested);
         // Absolute return % = (current market value − cumulative invested) / invested × 100
         // This is always mathematically correct regardless of SIP/lumpsum mix
         const absReturn = ((val - inv) / inv) * 100;
@@ -794,10 +795,12 @@ function RollingReturnsChart({ growthData }) {
     const result = [];
     for (let i = window; i < filtered.length; i++) {
       // Use value/invested ratio to strip out new SIP deposit effects
-      const prevInv = parseFloat(filtered[i - window].invested) || 1;
+      const prevInv = parseFloat(filtered[i - window].invested) || 0;
       const prevVal = parseFloat(filtered[i - window].value) || 0;
-      const currInv = parseFloat(filtered[i].invested) || 1;
+      const currInv = parseFloat(filtered[i].invested) || 0;
       const currVal = parseFloat(filtered[i].value) || 0;
+      // Skip window if either endpoint has no investment yet (avoids divide-by-zero)
+      if (prevInv <= 0 || currInv <= 0) continue;
       const prevRatio = prevVal / prevInv;
       const currRatio = currVal / currInv;
       const rolling = prevRatio > 0 ? ((currRatio - prevRatio) / prevRatio) * 100 : 0;

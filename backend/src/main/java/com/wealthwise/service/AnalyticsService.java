@@ -105,8 +105,7 @@ public class AnalyticsService {
 
         double volatility = calculateVolatility(returns);
         double volatilityPct = round(volatility * 100);
-        double portfolioReturn = calculatePortfolioReturn(portfolioValues);
-        double sharpeRatio = round(calculateSharpeRatio(portfolioReturn, volatility));
+        double sharpeRatio = round(calculateSharpeRatio(returns, volatility));
         double maxDrawdownPct = round(calculateMaxDrawdown(portfolioValues) * 100);
         double diversificationScore = round(calculateDiversificationScore(lots, schemeMap));
 
@@ -138,9 +137,10 @@ public class AnalyticsService {
     }
 
     /**
-     * Computes a time series of portfolio values, one per transaction, using the
-     * ACTUAL historical NAV on each transaction date (not today's NAV).
-     * This makes volatility, Sharpe ratio, and max drawdown mathematically accurate.
+     * Computes a time series of a Time-Weighted Return (TWR) "Price Index"
+     * scaled to 100.0, evaluating real market returns at each transaction date.
+     * This makes volatility, Sharpe ratio, and max drawdown mathematically accurate
+     * and immune to cash flow distortions from SIPs and redemptions.
      */
     private List<Double> calculatePortfolioValues(Long userId, Map<String, Scheme> schemeMap) {
         List<Transaction> transactions = new ArrayList<>(
@@ -171,50 +171,82 @@ public class AnalyticsService {
         }
 
         Map<String, BigDecimal> holdings = new HashMap<>();
-        List<Double> portfolioValues = new ArrayList<>();
+        List<Double> indexValues = new ArrayList<>();
+        double index = 100.0;
+        
+        LocalDate prevDate = null;
+        BigDecimal previousValue = ZERO;
 
         for (Transaction txn : transactions) {
             if (txn.getSchemeAmfiCode() == null || txn.getUnits() == null) continue;
 
+            LocalDate txDate = txn.getTransactionDate();
+
+            // 1. Calculate return on existing holdings before applying the new transaction
+            if (prevDate != null && txDate.isAfter(prevDate)) {
+                BigDecimal currentValueOfOldHoldings = computePortfolioValueAtDate(holdings, navHistories, schemeMap, txDate);
+                if (previousValue.compareTo(ZERO) > 0) {
+                    double periodReturn = currentValueOfOldHoldings.subtract(previousValue)
+                            .divide(previousValue, 6, RoundingMode.HALF_UP).doubleValue();
+                    index = index * (1.0 + periodReturn);
+                }
+                indexValues.add(index);
+                previousValue = currentValueOfOldHoldings; // Update old portfolio baseline to current date
+            } else if (prevDate == null) {
+                indexValues.add(index);
+            }
+
+            // 2. Apply transaction units to holdings
             String type = txn.getTransactionType();
-            // For redemptions, units leave the portfolio → subtract.
-            // DIVIDEND_REINVEST is internal NAV reinvestment — units are added but no cash outflow.
-            // REVERSAL transactions use negated units already (set in createReversal).
             boolean isRedemptionType = type != null && (
                 type.equals("REDEMPTION") || type.equals("SWITCH_OUT")
                 || type.equals("STP_OUT") || type.equals("SWP"));
 
-            BigDecimal unitDelta = isRedemptionType
-                ? txn.getUnits().negate()
-                : txn.getUnits();
-
+            BigDecimal unitDelta = isRedemptionType ? txn.getUnits().negate() : txn.getUnits();
             holdings.merge(txn.getSchemeAmfiCode(), unitDelta, BigDecimal::add);
 
-            LocalDate txDate = txn.getTransactionDate();
-            BigDecimal totalValue = ZERO;
-            for (Map.Entry<String, BigDecimal> entry : holdings.entrySet()) {
-                if (entry.getValue().compareTo(ZERO) <= 0) continue;
-
-                // Use actual NAV on the transaction date (or nearest prior trading day)
-                // navHistories may not have this code if the scheme wasn't in the original lot set
-                Map<String, BigDecimal> navHistory = navHistories.getOrDefault(entry.getKey(), Collections.emptyMap());
-                BigDecimal nav = findNavOnOrBefore(navHistory, txDate);
-
-                // Fallback to scheme's last known NAV if historical data unavailable
-                if (nav == null || nav.compareTo(ZERO) <= 0) {
-                    Scheme scheme = schemeMap.get(entry.getKey());
-                    if (scheme != null) nav = scheme.getLastNav();
-                }
-                if (nav != null && nav.compareTo(ZERO) > 0) {
-                    totalValue = totalValue.add(entry.getValue().multiply(nav));
-                }
-            }
-            if (totalValue.compareTo(ZERO) > 0) {
-                portfolioValues.add(totalValue.doubleValue());
-            }
+            // 3. Re-evaluate full new holdings for the next period baseline
+            previousValue = computePortfolioValueAtDate(holdings, navHistories, schemeMap, txDate);
+            prevDate = txDate;
         }
 
-        return portfolioValues;
+        // Add final epoch to capture market moves up to today
+        LocalDate today = LocalDate.now();
+        if (prevDate != null && today.isAfter(prevDate)) {
+            BigDecimal currentValueOfOldHoldings = computePortfolioValueAtDate(holdings, navHistories, schemeMap, today);
+            if (previousValue.compareTo(ZERO) > 0) {
+                double periodReturn = currentValueOfOldHoldings.subtract(previousValue)
+                        .divide(previousValue, 6, RoundingMode.HALF_UP).doubleValue();
+                index = index * (1.0 + periodReturn);
+            }
+            indexValues.add(index);
+        }
+
+        return indexValues;
+    }
+
+    private BigDecimal computePortfolioValueAtDate(
+            Map<String, BigDecimal> holdings,
+            Map<String, Map<String, BigDecimal>> navHistories,
+            Map<String, Scheme> schemeMap,
+            LocalDate date) {
+        BigDecimal totalValue = ZERO;
+        for (Map.Entry<String, BigDecimal> entry : holdings.entrySet()) {
+            if (entry.getValue().compareTo(ZERO) <= 0) continue;
+            
+            Map<String, BigDecimal> navHistory = navHistories.getOrDefault(entry.getKey(), Collections.emptyMap());
+            BigDecimal nav = findNavOnOrBefore(navHistory, date);
+            
+            // Fallback to scheme's last known NAV if historical data unavailable for that date
+            if (nav == null || nav.compareTo(ZERO) <= 0) {
+                Scheme scheme = schemeMap.get(entry.getKey());
+                if (scheme != null) nav = scheme.getLastNav();
+            }
+            if (nav != null && nav.compareTo(ZERO) > 0) {
+                totalValue = totalValue.add(entry.getValue().multiply(nav));
+            }
+        }
+        return totalValue;
     }
 
     /**
@@ -284,11 +316,23 @@ public class AnalyticsService {
         return (latest - initial) / initial; // simple total return over the period
     }
 
-    private double calculateSharpeRatio(double portfolioReturn, double volatility) {
-        if (volatility == 0.0) {
-            return 0.0;
-        }
-        return (portfolioReturn - RISK_FREE_RATE) / volatility;
+    /**
+     * Sharpe Ratio using mean excess return per TWR period.
+     * Both the mean return and risk-free rate are expressed per-period (not annualized),
+     * making them directly comparable.
+     *
+     * Approximate per-period risk-free rate assumes ~12 transactions/year (monthly SIPs).
+     * For a portfolio with fewer transactions the ratio is still directionally correct.
+     *
+     * Sharpe = (meanReturn - rfPerPeriod) / σ
+     */
+    private double calculateSharpeRatio(List<Double> returns, double volatility) {
+        if (volatility == 0.0 || returns.isEmpty()) return 0.0;
+        double meanReturn = returns.stream().mapToDouble(Double::doubleValue).average().orElse(0.0);
+        // Approximate per-period risk-free rate: 7% annual / sqrt(12) periods-per-year
+        // Using geometric monthly equivalent: (1 + 0.07)^(1/12) - 1 ≈ 0.00565
+        double rfPerPeriod = Math.pow(1.0 + RISK_FREE_RATE, 1.0 / 12.0) - 1.0;
+        return (meanReturn - rfPerPeriod) / volatility;
     }
 
     private double calculateMaxDrawdown(List<Double> values) {
