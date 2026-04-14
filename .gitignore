@@ -53,5 +53,6 @@ backend/dl-maven.js
 # Sensitive data — CAS PDFs contain personal financial data; never commit them
 # ─────────────────────────────────────────────────────────────────────────────
 *.pdf
+!docs/*.pdf
 generate_cas_pdf.py
 __pycache__/
