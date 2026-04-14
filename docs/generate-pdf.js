@@ -12,6 +12,7 @@ const docFiles = [
   '04_API_Documentation.md',
   '05_Deployment_Guide.md',
   '06_User_Manual.md',
+  '07_Testing_Documentation.md',
 ];
 
 // Read and combine all markdown files
@@ -327,7 +328,7 @@ const fullHtml = `<!DOCTYPE html>
   <div class="cover-divider"></div>
   <div class="cover-doc-title">Comprehensive Project Documentation</div>
   <div class="cover-meta">
-    Project Synopsis &bull; SRS &bull; System Design &bull; API Docs &bull; Deployment Guide &bull; User Manual<br>
+    Project Synopsis &bull; SRS &bull; System Design &bull; API Docs &bull; Deployment Guide &bull; User Manual &bull; Testing<br>
     Spring Boot 3.2 &bull; React 19 &bull; PostgreSQL 15 &bull; Docker<br>
     <br>April 2026
   </div>
@@ -357,6 +358,9 @@ const fullHtml = `<!DOCTYPE html>
     </li>
     <li>User Manual
       <span class="toc-desc">Feature Guide, Navigation, Screen Descriptions, 15 FAQs</span>
+    </li>
+    <li>Testing Documentation
+      <span class="toc-desc">280 Automated Tests, 15 Test Suites, Testcontainers, MSW, Playwright E2E, k6 Load Testing, OWASP, Storybook</span>
     </li>
   </ol>
 </div>

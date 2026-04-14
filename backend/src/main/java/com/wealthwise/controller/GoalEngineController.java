@@ -3,16 +3,16 @@ package com.wealthwise.controller;
 import com.wealthwise.service.GoalEngineService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
-import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/learn")
-@RequiredArgsConstructor
 public class GoalEngineController {
 
-    private final GoalEngineService goalEngineService;
+    @Autowired
+    private GoalEngineService goalEngineService;
 
     // ────────────────────────────────────────────────────────────
     // Combined Analysis Endpoint
