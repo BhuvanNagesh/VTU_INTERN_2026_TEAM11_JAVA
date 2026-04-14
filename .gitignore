@@ -56,3 +56,5 @@ backend/dl-maven.js
 !docs/*.pdf
 generate_cas_pdf.py
 __pycache__/
+
+docs/node_modules/
