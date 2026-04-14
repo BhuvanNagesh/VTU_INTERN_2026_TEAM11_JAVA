@@ -2,336 +2,273 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>WealthWise — Project Documentation</title>
-<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.3/dist/mermaid.min.js"></script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
-
-  :root {
-    --primary: #0066cc;
-    --primary-light: #e8f0fe;
-    --heading-color: #1a1a2e;
-    --text-color: #2d2d2d;
-    --text-muted: #666;
-    --border-color: #e0e0e0;
-    --bg-code: #f6f8fa;
-    --bg-table-header: #f0f4f8;
-    --bg-blockquote: #fef9e7;
-    --accent-green: #00a67d;
-    --accent-blue: #2563eb;
-  }
 
   * { margin: 0; padding: 0; box-sizing: border-box; }
 
   body {
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-    font-size: 11pt;
-    line-height: 1.7;
-    color: var(--text-color);
+    font-family: 'Inter', -apple-system, sans-serif;
+    font-size: 11.5pt;
+    line-height: 1.75;
+    color: #1a1a1a;
     background: white;
-    -webkit-print-color-adjust: exact;
-    print-color-adjust: exact;
+    width: 210mm;
+    min-width: 210mm;
   }
 
-  /* Cover Page */
+  /* ── Cover Page ───────────────────────────────────────── */
   .cover-page {
     display: flex;
     flex-direction: column;
     justify-content: center;
     align-items: center;
-    min-height: 100vh;
+    min-height: 297mm;
     text-align: center;
-    padding: 3cm;
+    padding: 40mm 30mm;
     background: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
     color: white;
     page-break-after: always;
   }
-
-  .cover-page .logo {
-    font-size: 56pt;
+  .cover-logo {
+    font-size: 52pt;
     font-weight: 800;
     letter-spacing: -2px;
-    margin-bottom: 8px;
     background: linear-gradient(90deg, #00d09c, #4fc3f7);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
+    margin-bottom: 12px;
   }
-
-  .cover-page .subtitle {
-    font-size: 16pt;
+  .cover-subtitle {
+    font-size: 14pt;
     font-weight: 300;
     color: #b0b0d0;
-    margin-bottom: 48px;
-    max-width: 500px;
+    margin-bottom: 40px;
+    max-width: 420px;
+    line-height: 1.5;
   }
-
-  .cover-page .divider {
-    width: 120px;
+  .cover-divider {
+    width: 100px;
     height: 3px;
     background: linear-gradient(90deg, #00d09c, #4fc3f7);
-    margin: 32px auto;
+    margin: 28px auto;
     border-radius: 2px;
   }
-
-  .cover-page .doc-title {
-    font-size: 22pt;
+  .cover-doc-title {
+    font-size: 20pt;
     font-weight: 600;
     color: #e0e0f0;
-    margin-top: 16px;
+    margin-top: 12px;
   }
-
-  .cover-page .doc-meta {
-    font-size: 11pt;
+  .cover-meta {
+    font-size: 10.5pt;
     color: #8888aa;
-    margin-top: 24px;
-    line-height: 2;
+    margin-top: 20px;
+    line-height: 2.2;
   }
 
-  /* TOC */
+  /* ── TOC ──────────────────────────────────────────────── */
   .toc-page {
     page-break-after: always;
-    padding: 1cm 0;
+    padding: 20mm 18mm;
   }
-
   .toc-page h2 {
-    font-size: 20pt;
-    color: var(--heading-color);
-    margin-bottom: 24px;
-    padding-bottom: 12px;
-    border-bottom: 3px solid var(--primary);
+    font-size: 22pt;
+    color: #1a1a2e;
+    margin-bottom: 20px;
+    padding-bottom: 10px;
+    border-bottom: 3px solid #0066cc;
   }
-
-  .toc-page ol {
-    list-style: none;
-    counter-reset: toc;
-    padding: 0;
-  }
-
-  .toc-page ol li {
+  .toc-list { list-style: none; counter-reset: toc; }
+  .toc-list li {
     counter-increment: toc;
-    padding: 12px 0;
+    padding: 14px 0;
     border-bottom: 1px solid #f0f0f0;
     font-size: 13pt;
     font-weight: 500;
   }
-
-  .toc-page ol li::before {
+  .toc-list li::before {
     content: counter(toc) ".";
-    color: var(--primary);
+    color: #0066cc;
     font-weight: 700;
     margin-right: 12px;
-    font-size: 14pt;
+    font-size: 13pt;
   }
-
-  .toc-page ol li .toc-desc {
+  .toc-desc {
     display: block;
-    font-size: 10pt;
+    font-size: 9.5pt;
     font-weight: 400;
-    color: var(--text-muted);
-    margin-top: 4px;
-    padding-left: 28px;
+    color: #666;
+    margin-top: 3px;
+    padding-left: 30px;
   }
 
-  /* Page breaks */
+  /* ── Page Break ───────────────────────────────────────── */
   .page-break { page-break-before: always; }
 
-  /* Headings */
+  /* ── Headings ─────────────────────────────────────────── */
   h1 {
-    font-size: 24pt;
+    font-size: 22pt;
     font-weight: 800;
-    color: var(--heading-color);
-    margin: 36px 0 16px;
-    padding-bottom: 12px;
-    border-bottom: 3px solid var(--primary);
+    color: #1a1a2e;
+    margin: 32px 0 14px;
+    padding-bottom: 10px;
+    border-bottom: 3px solid #0066cc;
     letter-spacing: -0.5px;
     page-break-after: avoid;
   }
-
   h2 {
-    font-size: 16pt;
+    font-size: 15pt;
     font-weight: 700;
-    color: var(--heading-color);
-    margin: 32px 0 12px;
-    padding-bottom: 8px;
-    border-bottom: 2px solid var(--border-color);
+    color: #1a1a2e;
+    margin: 28px 0 10px;
+    padding-bottom: 6px;
+    border-bottom: 1.5px solid #e0e0e0;
     page-break-after: avoid;
   }
-
   h3 {
-    font-size: 13pt;
+    font-size: 12.5pt;
     font-weight: 600;
     color: #333;
-    margin: 24px 0 8px;
+    margin: 22px 0 8px;
     page-break-after: avoid;
   }
-
   h4 {
-    font-size: 11.5pt;
+    font-size: 11pt;
     font-weight: 600;
     color: #444;
-    margin: 18px 0 6px;
+    margin: 16px 0 6px;
     page-break-after: avoid;
   }
 
-  /* Paragraphs */
-  p { margin: 8px 0; }
-
-  /* Links */
-  a { color: var(--primary); text-decoration: none; }
-
-  /* Lists */
+  p { margin: 7px 0; }
+  a { color: #0066cc; text-decoration: none; }
   ul, ol { margin: 8px 0 8px 24px; }
   li { margin: 4px 0; }
+  strong { font-weight: 600; color: #111; }
+  hr { border: none; height: 1px; background: #e0e0e0; margin: 20px 0; }
 
-  /* Tables */
+  /* ── Tables ───────────────────────────────────────────── */
   table {
     width: 100%;
     border-collapse: collapse;
-    margin: 16px 0;
-    font-size: 10pt;
+    margin: 14px 0;
+    font-size: 9.5pt;
     page-break-inside: auto;
   }
-
-  thead {
-    background: var(--bg-table-header);
-  }
-
+  thead { background: #f0f4f8; }
   th {
-    padding: 10px 12px;
+    padding: 9px 11px;
     text-align: left;
     font-weight: 600;
-    color: var(--heading-color);
-    border: 1px solid var(--border-color);
-    font-size: 9.5pt;
+    color: #1a1a2e;
+    border: 1px solid #ddd;
+    font-size: 9pt;
     text-transform: uppercase;
     letter-spacing: 0.3px;
   }
-
   td {
-    padding: 8px 12px;
-    border: 1px solid var(--border-color);
+    padding: 7px 11px;
+    border: 1px solid #ddd;
     vertical-align: top;
   }
-
   tr:nth-child(even) { background: #fafbfc; }
   tr { page-break-inside: avoid; }
 
-  /* Code */
+  /* ── Code ─────────────────────────────────────────────── */
   code {
-    font-family: 'JetBrains Mono', 'Cascadia Code', 'Fira Code', monospace;
-    font-size: 9.5pt;
-    background: var(--bg-code);
-    padding: 2px 6px;
-    border-radius: 4px;
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 9pt;
+    background: #f5f5f5;
+    padding: 2px 5px;
+    border-radius: 3px;
     border: 1px solid #e8e8e8;
-    color: #d63384;
+    color: #c7254e;
   }
-
   pre {
     background: #1e1e2e;
     color: #cdd6f4;
-    padding: 16px 20px;
-    border-radius: 8px;
-    overflow-x: auto;
-    margin: 16px 0;
-    font-size: 9pt;
+    padding: 14px 18px;
+    border-radius: 6px;
+    margin: 14px 0;
+    font-size: 8.5pt;
     line-height: 1.6;
     page-break-inside: avoid;
+    white-space: pre-wrap;
+    word-wrap: break-word;
   }
-
   pre code {
     background: none;
     border: none;
     padding: 0;
     color: #cdd6f4;
-    font-size: 9pt;
+    font-size: 8.5pt;
   }
 
-  /* Blockquotes */
+  /* ── Blockquotes ──────────────────────────────────────── */
   blockquote {
-    border-left: 4px solid var(--primary);
-    background: var(--primary-light);
-    padding: 12px 20px;
-    margin: 16px 0;
-    border-radius: 0 8px 8px 0;
+    border-left: 4px solid #0066cc;
+    background: #e8f0fe;
+    padding: 10px 18px;
+    margin: 14px 0;
+    border-radius: 0 6px 6px 0;
     font-style: italic;
     color: #444;
     page-break-inside: avoid;
   }
 
-  blockquote em { font-style: italic; }
-
-  /* Horizontal rules */
-  hr {
-    border: none;
-    height: 1px;
-    background: var(--border-color);
-    margin: 24px 0;
+  /* ── Mermaid Diagrams — KEY FIX ───────────────────────── */
+  .mermaid-wrapper {
+    width: 100%;
+    margin: 20px 0;
+    page-break-inside: avoid;
+    display: block;
   }
 
-  /* Strong */
-  strong { font-weight: 600; color: #1a1a1a; }
-
-  /* Mermaid diagrams */
   .mermaid {
-    display: flex;
-    justify-content: center;
-    margin: 20px 0;
-    padding: 16px;
-    background: #fafbfc;
-    border: 1px solid var(--border-color);
+    display: block;
+    width: 100%;
+    min-height: 80px;
+    text-align: center;
+    padding: 16px 8px;
+    background: #f8faff;
+    border: 1px solid #d8e3f0;
     border-radius: 8px;
-    page-break-inside: avoid;
     overflow: visible;
   }
 
+  /* Make all mermaid SVGs full width */
   .mermaid svg {
+    width: 100% !important;
     max-width: 100% !important;
     height: auto !important;
+    display: block;
+    margin: 0 auto;
   }
 
-  /* Section markers */
-  .section-number {
-    color: var(--primary);
-    font-weight: 700;
+  /* Sequence diagrams need more space */
+  .mermaid svg[id^="sequence"],
+  .mermaid svg[aria-roledescription="sequence"],
+  .mermaid svg[aria-roledescription="er"] {
+    min-height: 300px;
   }
 
-  /* Page header/footer for print */
+  /* ── Print / Page ─────────────────────────────────────── */
   @page {
     size: A4;
-    margin: 2cm 2.2cm 2.5cm 2.2cm;
-
-    @bottom-center {
-      content: "WealthWise Documentation";
-      font-size: 8pt;
-      color: #999;
-    }
-
-    @bottom-right {
-      content: counter(page);
-      font-size: 8pt;
-      color: #999;
-    }
+    margin: 22mm 20mm 25mm 20mm;
   }
+  @page :first { margin: 0; }
 
-  @page :first {
-    margin: 0;
-    @bottom-center { content: none; }
-    @bottom-right { content: none; }
-  }
-
-  /* Print specific */
   @media print {
     body { font-size: 10.5pt; }
-    .cover-page { min-height: 100vh; }
     .page-break { page-break-before: always; }
-    h1 { font-size: 20pt; }
+    h1 { font-size: 19pt; }
     h2 { font-size: 14pt; }
     h3 { font-size: 12pt; }
-    pre { font-size: 8.5pt; }
-    table { font-size: 9pt; }
   }
 </style>
 </head>
@@ -339,49 +276,43 @@
 
 <!-- Cover Page -->
 <div class="cover-page">
-  <div class="logo">WealthWise</div>
-  <div class="subtitle">An Intelligent Portfolio Analytics and Goal-Planning Platform for Indian Mutual Fund Investors</div>
-  <div class="divider"></div>
-  <div class="doc-title">Comprehensive Project Documentation</div>
-  <div class="doc-meta">
-    Project Synopsis &bull; SRS &bull; System Design &bull; API Documentation &bull; Deployment Guide &bull; User Manual<br>
-    Spring Boot 3.2 &bull; React 19 &bull; PostgreSQL &bull; Docker<br>
-    <br>
-    April 2026
+  <div class="cover-logo">WealthWise</div>
+  <div class="cover-subtitle">
+    An Intelligent Portfolio Analytics and Goal-Planning Platform<br>for Indian Mutual Fund Investors
+  </div>
+  <div class="cover-divider"></div>
+  <div class="cover-doc-title">Comprehensive Project Documentation</div>
+  <div class="cover-meta">
+    Project Synopsis &bull; SRS &bull; System Design &bull; API Docs &bull; Deployment Guide &bull; User Manual<br>
+    Spring Boot 3.2 &bull; React 19 &bull; PostgreSQL 15 &bull; Docker<br>
+    <br>April 2026
   </div>
 </div>
 
 <!-- Table of Contents -->
 <div class="toc-page">
   <h2>Table of Contents</h2>
-  <ol>
-    <li>
-      Project Synopsis
+  <ol class="toc-list">
+    <li>Project Synopsis
       <span class="toc-desc">Abstract, Problem Statement, Objectives, Scope, Technology Stack</span>
     </li>
-    <li>
-      Software Requirements Specification (SRS)
-      <span class="toc-desc">Functional Requirements (30 FRs), Non-Functional Requirements (30 NFRs), System Features Matrix, Use Cases</span>
+    <li>Software Requirements Specification (SRS)
+      <span class="toc-desc">30 Functional Requirements, 30 Non-Functional Requirements, Feature Matrix, 4 Use Cases</span>
     </li>
-    <li>
-      System Design — High-Level Design (HLD)
-      <span class="toc-desc">Architecture Overview, Technology Justification, Caching Architecture, Security Architecture</span>
+    <li>System Design — High-Level Design (HLD)
+      <span class="toc-desc">Architecture Overview, Technology Justification, Caching, Security Architecture</span>
     </li>
-    <li>
-      System Design — Low-Level Design (LLD)
-      <span class="toc-desc">Module Breakdown, Class Diagram, Sequence Diagrams, Data Flow Diagrams, Database Schema, Pseudocode</span>
+    <li>System Design — Low-Level Design (LLD)
+      <span class="toc-desc">Class Diagram, 3 Sequence Diagrams, DFD Level 0/1, ER Diagram, Algorithm Pseudocode</span>
     </li>
-    <li>
-      API Documentation
-      <span class="toc-desc">37 Endpoints across 9 API Groups, Authentication, Request/Response Samples</span>
+    <li>API Documentation
+      <span class="toc-desc">37 Endpoints across 9 API groups, JWT authentication, Request/Response samples</span>
     </li>
-    <li>
-      Deployment Guide
-      <span class="toc-desc">Prerequisites, Environment Configuration, Local Setup, Docker Builds, Render Deployment, Troubleshooting</span>
+    <li>Deployment Guide
+      <span class="toc-desc">Prerequisites, Environment Variables, Local Setup, Docker, Render Deployment, Troubleshooting</span>
     </li>
-    <li>
-      User Manual
-      <span class="toc-desc">Feature Guide, Navigation, Screen Descriptions, FAQ</span>
+    <li>User Manual
+      <span class="toc-desc">Feature Guide, Navigation, Screen Descriptions, 15 FAQs</span>
     </li>
   </ol>
 </div>
@@ -779,45 +710,50 @@
 <li><strong>AMFI NAVAll.txt</strong> — Scheme master data seeding (public HTTP endpoint)</li>
 </ul>
 <h3>2.2 Product Functions (Summary)</h3>
-<div class="mermaid">mindmap
-  root((WealthWise))
-    Authentication
-      Sign Up
-      Sign In
-      Forgot Password
-      OTP Reset
-    Profile
-      View Profile
-      Update Details
-      Change Password
-      PAN Encryption
-    Transactions
-      Manual Entry
-      Bulk SIP Generator
-      CAS PDF Import
-      Transaction Reversal
-      Portfolio Summary
-    Analytics
-      Risk Profiling
-      Volatility & Sharpe
-      Fund Overlap Matrix
-      Growth Timeline
-    SIP Intelligence
-      Active SIP Dashboard
-      SIP vs Lumpsum
-      Day Optimization
-      Step-Up Projection
-    Goal Planning
-      Goal CRUD
-      Monte Carlo Sim
-      Deterministic Proj
-      Required SIP Calc
-      Goal-Fund Linking
-    Scheme Data
-      AMFI Seed
-      Scheme Search
-      NAV Fetching
-      NAV Caching</div><h3>2.3 User Classes and Characteristics</h3>
+<div class="mermaid-wrapper"><div class="mermaid">flowchart LR
+    WW[WealthWise Platform]
+
+    WW --> A[Authentication]
+    A --> A1[Sign Up]
+    A --> A2[Sign In]
+    A --> A3[Forgot Password]
+    A --> A4[OTP Reset]
+
+    WW --> B[Profile]
+    B --> B1[View Profile]
+    B --> B2[Update Details]
+    B --> B3[Change Password]
+    B --> B4[PAN AES-256-GCM]
+
+    WW --> C[Transactions]
+    C --> C1[Manual Entry]
+    C --> C2[Bulk SIP Generator]
+    C --> C3[CAS PDF Import]
+    C --> C4[Transaction Reversal]
+
+    WW --> D[Analytics]
+    D --> D1[Risk Profiling]
+    D --> D2[Volatility and Sharpe]
+    D --> D3[Fund Overlap Matrix]
+    D --> D4[Growth Timeline]
+
+    WW --> E[SIP Intelligence]
+    E --> E1[Active SIP Dashboard]
+    E --> E2[SIP vs Lumpsum]
+    E --> E3[Day Optimization]
+    E --> E4[Step-Up Projection]
+
+    WW --> F[Goal Planning]
+    F --> F1[Goal CRUD]
+    F --> F2[Monte Carlo 10K]
+    F --> F3[Deterministic Proj]
+    F --> F4[Required SIP Calc]
+
+    WW --> G[Scheme Data]
+    G --> G1[AMFI Seed 45K]
+    G --> G2[Scheme Search]
+    G --> G3[NAV Fetching]
+    G --> G4[NAV Caching]</div></div><h3>2.3 User Classes and Characteristics</h3>
 <table>
 <thead>
 <tr>
@@ -1741,7 +1677,7 @@
 <li><strong>Security-by-Default</strong> — Every response includes hardened security headers; sensitive data encrypted at rest</li>
 </ol>
 <h3>1.1 Architecture Diagram</h3>
-<div class="mermaid">graph TB
+<div class="mermaid-wrapper"><div class="mermaid">graph TB
     subgraph CLIENT["Client Tier"]
         Browser["Web Browser"]
         SPA["React 19 SPA - Vite 7 + React Router 7"]
@@ -1773,8 +1709,8 @@
     SVC -->|"HTTP GET"| MFAPI
     SVC -->|"HTTP GET"| AMFI
     SVC -->|"SMTP/TLS"| SMTP
-    CACHE -.->|"Cache Miss"| MFAPI</div><h3>1.2 Component Interaction Flow</h3>
-<div class="mermaid">flowchart LR
+    CACHE -.->|"Cache Miss"| MFAPI</div></div><h3>1.2 Component Interaction Flow</h3>
+<div class="mermaid-wrapper"><div class="mermaid">flowchart LR
     A[React SPA] -->|1. HTTP Request + JWT| B[JwtAuthenticationFilter]
     B -->|2. Validate Token| C{Token Valid?}
     C -->|Yes| D[Controller Layer]
@@ -1784,7 +1720,7 @@
     F -->|4b. Cache Check| H[Caffeine Cache]
     H -->|Cache Miss| I[mfapi.in / AMFI]
     G -->|5. JPA/SQL| J[(PostgreSQL)]
-    D -->|6. JSON Response| A</div><h3>1.3 Request Processing Pipeline</h3>
+    D -->|6. JSON Response| A</div></div><h3>1.3 Request Processing Pipeline</h3>
 <p>Every API request passes through the following pipeline:</p>
 <table>
 <thead>
@@ -1923,7 +1859,7 @@
 </tbody></table>
 <hr>
 <h2>3. Caching Architecture</h2>
-<div class="mermaid">flowchart TD
+<div class="mermaid-wrapper"><div class="mermaid">flowchart TD
     subgraph LAYER1["Layer 1: Caffeine In-Memory Cache"]
         C1["nav_latest - TTL: 24h - Max: 50K entries - Key: amfiCode"]
         C2["nav_history - TTL: 7d - Max: 500K entries - Key: amfiCode"]
@@ -1944,7 +1880,7 @@
     C1 -.->|"Miss"| API1
     C2 -.->|"Miss"| API2
     C3 -.->|"Miss"| DB2
-    API2 -->|"Write-Through"| DB1</div><p><strong>Design Rationale:</strong></p>
+    API2 -->|"Write-Through"| DB1</div></div><p><strong>Design Rationale:</strong></p>
 <ul>
 <li>NAV data is near-immutable once published (historical NAVs never change) → 7-day cache is safe</li>
 <li>Latest NAV updates once daily (after 11 PM IST when AMFI publishes) → 24-hour cache is optimal</li>
@@ -1953,35 +1889,25 @@
 </ul>
 <hr>
 <h2>4. Security Architecture</h2>
-<div class="mermaid">flowchart TD
-    subgraph "Transport Security"
-        TLS["TLS 1.2+ (HTTPS enforced by Render)"]
-        HSTS["HSTS Header: max-age=31536000"]
-    end
+<div class="mermaid-wrapper"><div class="mermaid">flowchart TD
+    A([HTTPS Request]) --> B[TLS 1.2 Transport - HSTS enforced]
+    B --> C[JwtAuthenticationFilter - OncePerRequestFilter]
+    C --> D{JWT Valid?}
+    D -->|No| E([401 Unauthorized])
+    D -->|Yes| F[Controller Layer]
 
-    subgraph "Authentication Layer"
-        JWT_F["JwtAuthenticationFilter<br/>(OncePerRequestFilter)"]
-        JWT_S["JwtService<br/>HMAC-SHA256 signing"]
-        BCRYPT["BCryptPasswordEncoder<br/>Cost factor: 10"]
-    end
+    F --> G[BCrypt Password Hashing - Cost Factor 10]
+    F --> H[PanCardEncryptor - AES-256-GCM at rest]
+    F --> I[OTP via SecureRandom - BCrypt hashed - 5min expiry]
+    F --> J[PAN masked as ABCDE-1234F in API responses]
+    F --> K[Response Headers]
+    F --> L[GlobalExceptionHandler - strips stack traces]
 
-    subgraph "Data Protection"
-        AES["PanCardEncryptor<br/>AES-256-GCM"]
-        OTP_H["OTP Hashing<br/>BCrypt (same encoder)"]
-        MASK["PAN Masking<br/>ABCDE****F"]
-    end
-
-    subgraph "Response Hardening"
-        XFO["X-Frame-Options: DENY"]
-        XCTO["X-Content-Type-Options: nosniff"]
-        XSS["X-XSS-Protection: 1; mode=block"]
-        RP["Referrer-Policy: strict-origin-when-cross-origin"]
-        CORS_H["CORS: Configured origins only"]
-    end
-
-    subgraph "Error Sanitization"
-        GEH["GlobalExceptionHandler<br/>Strips Java class paths from error messages"]
-    end</div><p><strong>Key Security Decisions:</strong></p>
+    K --> K1[X-Frame-Options DENY]
+    K --> K2[X-Content-Type-Options nosniff]
+    K --> K3[X-XSS-Protection enabled]
+    K --> K4[Referrer-Policy strict-origin]
+    K --> K5[CORS allow-listed origins only]</div></div><p><strong>Key Security Decisions:</strong></p>
 <table>
 <thead>
 <tr>
@@ -2080,7 +2006,7 @@
 </tbody></table>
 <hr>
 <h2>6. Class Diagram</h2>
-<div class="mermaid">classDiagram
+<div class="mermaid-wrapper"><div class="mermaid">classDiagram
     class User {
         -Long id
         -String fullName
@@ -2212,10 +2138,10 @@
     Scheme "1" --> "*" NavHistory : has history
     Scheme "1" --> "*" FundHolding : holds stocks
     Goal "1" --> "*" GoalFundLink : links to
-    InvestmentLot "1" --> "*" GoalFundLink : linked from</div><hr>
+    InvestmentLot "1" --> "*" GoalFundLink : linked from</div></div><hr>
 <h2>7. Sequence Diagrams</h2>
 <h3>7.1 CAS PDF Import Flow</h3>
-<div class="mermaid">sequenceDiagram
+<div class="mermaid-wrapper"><div class="mermaid">sequenceDiagram
     actor User
     participant FE as React Frontend
     participant TC as TransactionController
@@ -2260,8 +2186,8 @@
     CPS->>DB: INSERT into cas_upload_log<br/>(status=SUCCESS)
     CPS-->>TC: { totalFolios, totalTransactions }
     TC-->>FE: 200 OK + summary
-    FE-->>User: "Import complete" toast</div><h3>7.2 Transaction Recording Flow (Purchase with Lot Creation)</h3>
-<div class="mermaid">sequenceDiagram
+    FE-->>User: "Import complete" toast</div></div><h3>7.2 Transaction Recording Flow (Purchase with Lot Creation)</h3>
+<div class="mermaid-wrapper"><div class="mermaid">sequenceDiagram
     actor User
     participant FE as React Frontend
     participant TC as TransactionController
@@ -2304,57 +2230,51 @@
 
     TS-->>TC: Transaction object
     TC-->>FE: 200 OK + Transaction JSON
-    FE-->>User: "Transaction recorded" toast</div><h3>7.3 Goal Analysis Flow (Monte Carlo + Deterministic + Required SIP)</h3>
-<div class="mermaid">sequenceDiagram
+    FE-->>User: "Transaction recorded" toast</div></div><h3>7.3 Goal Analysis Flow (Monte Carlo + Deterministic + Required SIP)</h3>
+<div class="mermaid-wrapper"><div class="mermaid">sequenceDiagram
     actor User
     participant FE as React Frontend
     participant GEC as GoalEngineController
     participant GES as GoalEngineService
 
-    User->>FE: Click "Analyze Goal"
-    FE->>GEC: POST /api/learn/analyse<br/>{initialPortfolio, monthlyContribution,<br/>monthlyMean, monthlyStdDev,<br/>months, targetAmount, inflationRate}
+    User->>FE: Click Analyze Goal
+    FE->>GEC: POST /api/learn/analyse
 
-    GEC->>GEC: @Valid validation<br/>(constraints checked)
+    GEC->>GEC: Validate request fields
 
-    par Monte Carlo
-        GEC->>GES: runMonteCarlo(...)
-        GES->>GES: Run 10,000 simulations
-        loop 10,000 iterations
-            GES->>GES: Generate Gaussian random returns
-            GES->>GES: Apply floor limits
-            GES->>GES: Compound monthly
-        end
-        GES->>GES: Sort final values
-        GES->>GES: Extract P10/P50/P90
-        GES->>GES: Convert to real (today's money)
-        GES-->>GEC: MonteCarloResult
-    and Deterministic
-        GEC->>GES: runDeterministicProjection(...)
-        GES->>GES: FV corpus + FV SIP
-        GES->>GES: Deflate to real values
-        GES->>GES: Run 3 sensitivity scenarios
-        GES-->>GEC: DeterministicResult
-    and Required SIP
-        GEC->>GES: runRequiredSipCalculator(...)
-        GES->>GES: Compute inflation-adjusted target
-        GES->>GES: Solve for required SIP
-        GES->>GES: Compute lump sum alternative
-        GES->>GES: Compute extra months needed
-        GES-->>GEC: RequiredSipResult
+    GEC->>GES: runMonteCarlo(portfolio, sip, mean, stdDev, months, target)
+    loop 10000 iterations
+        GES->>GES: Generate Gaussian random monthly return
+        GES->>GES: Apply floor limit
+        GES->>GES: Compound corpus monthly
     end
+    GES->>GES: Sort final values - extract P10/P50/P90
+    GES->>GES: Deflate to real money (inflation-adjusted)
+    GES-->>GEC: MonteCarloResult (p10, p50, p90, successProbability)
 
-    GEC-->>FE: AnalyseResponse<br/>{monteCarlo, deterministic, requiredSip}
-    FE-->>User: Render analysis modal<br/>with charts and tables</div><hr>
+    GEC->>GES: runDeterministicProjection(portfolio, sip, returnRate, months)
+    GES->>GES: FV = corpus x (1+r)^n + SIP x FV annuity
+    GES->>GES: Run 3 sensitivity scenarios
+    GES-->>GEC: DeterministicResult (projected, gap, onTrack, scenarios)
+
+    GEC->>GES: runRequiredSipCalculator(target, corpus, months, returnRate)
+    GES->>GES: Solve required monthly SIP
+    GES->>GES: Compute lump sum equivalent today
+    GES->>GES: Compute extra months at current SIP rate
+    GES-->>GEC: RequiredSipResult (requiredSip, gap, lumpSum, extraMonths)
+
+    GEC-->>FE: AnalyseResponse with all three engine results
+    FE-->>User: Render Monte Carlo chart + sensitivity table + required SIP</div></div><hr>
 <h2>8. Data Flow Diagrams</h2>
 <h3>8.1 DFD Level 0 (Context Diagram)</h3>
-<div class="mermaid">flowchart LR
+<div class="mermaid-wrapper"><div class="mermaid">flowchart LR
     U((Investor)) -->|"Transactions<br/>CAS PDFs<br/>Goals"| WW["WealthWise<br/>System"]
     WW -->|"Portfolio Analytics<br/>Risk Reports<br/>Goal Analysis"| U
 
     MFAPI[("mfapi.in")] -->|"NAV Data"| WW
     AMFI[("AMFI")] -->|"Scheme<br/>Master"| WW
-    SMTP[("Gmail")] <-->|"OTP<br/>Emails"| WW</div><h3>8.2 DFD Level 1</h3>
-<div class="mermaid">flowchart TB
+    SMTP[("Gmail")] <-->|"OTP<br/>Emails"| WW</div></div><h3>8.2 DFD Level 1</h3>
+<div class="mermaid-wrapper"><div class="mermaid">flowchart TB
     U((Investor))
 
     subgraph "WealthWise System"
@@ -2411,10 +2331,10 @@
 
     U -->|"Goal Data"| P6
     P6 -->|"Goal Analysis"| U
-    P6 <--> DS7</div><hr>
+    P6 <--> DS7</div></div><hr>
 <h2>9. Database Schema Design</h2>
 <h3>9.1 Entity-Relationship Diagram</h3>
-<div class="mermaid">erDiagram
+<div class="mermaid-wrapper"><div class="mermaid">erDiagram
     USERS {
         bigint id PK
         varchar full_name
@@ -2554,7 +2474,7 @@
     SCHEME_MASTER ||--o{ NAV_HISTORY : "has NAV history"
     SCHEME_MASTER ||--o{ FUND_HOLDINGS : "holds stocks"
     GOALS ||--o{ GOAL_FUND_LINKS : "links to"
-    INVESTMENT_LOTS ||--o{ GOAL_FUND_LINKS : "linked from"</div><h3>9.2 Table Details and Constraints</h3>
+    INVESTMENT_LOTS ||--o{ GOAL_FUND_LINKS : "linked from"</div></div><h3>9.2 Table Details and Constraints</h3>
 <table>
 <thead>
 <tr>
@@ -4741,41 +4661,96 @@ ENTRYPOINT [&quot;java&quot;, &quot;-XX:TieredStopAtLevel=1&quot;, &quot;-XX:Max
 
 
 <script>
+  window.mermaidReady = false;
+
   mermaid.initialize({
-    startOnLoad: true,
-    theme: 'default',
-    securityLevel: 'loose',
+    startOnLoad: false,
+    theme: 'base',
     themeVariables: {
-      fontSize: '14px',
+      fontSize: '13px',
       fontFamily: 'Inter, sans-serif',
+      primaryColor: '#e8f0fe',
+      primaryBorderColor: '#0066cc',
+      primaryTextColor: '#1a1a2e',
+      lineColor: '#0066cc',
+      secondaryColor: '#f0f4f8',
+      tertiaryColor: '#fff',
+      noteBkgColor: '#fffbea',
+      noteTextColor: '#333',
+      activationBkgColor: '#e8f0fe',
     },
     flowchart: {
-      useMaxWidth: true,
+      useMaxWidth: false,
       htmlLabels: true,
       curve: 'basis',
-      padding: 15,
-      nodeSpacing: 50,
-      rankSpacing: 50,
+      padding: 20,
+      nodeSpacing: 60,
+      rankSpacing: 60,
+      diagramPadding: 20,
     },
     sequence: {
-      useMaxWidth: true,
+      useMaxWidth: false,
       actorFontSize: 13,
       messageFontSize: 12,
       noteFontSize: 11,
       wrap: true,
-      width: 180,
+      width: 200,
+      height: 40,
+      diagramMarginX: 20,
+      diagramMarginY: 20,
     },
     er: {
-      useMaxWidth: true,
+      useMaxWidth: false,
       fontSize: 12,
+      diagramPadding: 20,
     },
     classDiagram: {
-      useMaxWidth: true,
-    },
-    mindmap: {
-      useMaxWidth: true,
+      useMaxWidth: false,
+      diagramPadding: 20,
     },
   });
+
+  async function renderAll() {
+    const elements = document.querySelectorAll('.mermaid');
+    console.log('Rendering', elements.length, 'Mermaid diagrams...');
+
+    for (let i = 0; i < elements.length; i++) {
+      const el = elements[i];
+      const src = el.textContent.trim();
+      if (!src) continue;
+
+      try {
+        const id = 'mermaid-' + i;
+        const { svg } = await mermaid.render(id, src);
+        el.innerHTML = svg;
+
+        // Ensure SVG stretches properly
+        const svgEl = el.querySelector('svg');
+        if (svgEl) {
+          svgEl.removeAttribute('width');
+          svgEl.removeAttribute('height');
+          svgEl.style.width = '100%';
+          svgEl.style.maxWidth = '100%';
+          svgEl.style.height = 'auto';
+          // If viewBox not set, set a default
+          if (!svgEl.getAttribute('viewBox')) {
+            const w = svgEl.scrollWidth || 800;
+            const h = svgEl.scrollHeight || 400;
+            svgEl.setAttribute('viewBox', `0 0 ${w} ${h}`);
+          }
+        }
+        console.log('Rendered diagram', i + 1, '/', elements.length);
+      } catch (err) {
+        console.error('Failed to render diagram', i, ':', err.message);
+        el.innerHTML = '<p style="color:#c00;padding:10px;font-size:10pt;">⚠️ Diagram rendering failed: ' + err.message + '</p>';
+      }
+    }
+
+    window.mermaidReady = true;
+    console.log('All diagrams rendered.');
+  }
+
+  renderAll();
 </script>
 </body>
 </html>

@@ -71,45 +71,50 @@ External dependencies are limited to two read-only public APIs:
 ### 2.2 Product Functions (Summary)
 
 ```mermaid
-mindmap
-  root((WealthWise))
-    Authentication
-      Sign Up
-      Sign In
-      Forgot Password
-      OTP Reset
-    Profile
-      View Profile
-      Update Details
-      Change Password
-      PAN Encryption
-    Transactions
-      Manual Entry
-      Bulk SIP Generator
-      CAS PDF Import
-      Transaction Reversal
-      Portfolio Summary
-    Analytics
-      Risk Profiling
-      Volatility & Sharpe
-      Fund Overlap Matrix
-      Growth Timeline
-    SIP Intelligence
-      Active SIP Dashboard
-      SIP vs Lumpsum
-      Day Optimization
-      Step-Up Projection
-    Goal Planning
-      Goal CRUD
-      Monte Carlo Sim
-      Deterministic Proj
-      Required SIP Calc
-      Goal-Fund Linking
-    Scheme Data
-      AMFI Seed
-      Scheme Search
-      NAV Fetching
-      NAV Caching
+flowchart LR
+    WW[WealthWise Platform]
+
+    WW --> A[Authentication]
+    A --> A1[Sign Up]
+    A --> A2[Sign In]
+    A --> A3[Forgot Password]
+    A --> A4[OTP Reset]
+
+    WW --> B[Profile]
+    B --> B1[View Profile]
+    B --> B2[Update Details]
+    B --> B3[Change Password]
+    B --> B4[PAN AES-256-GCM]
+
+    WW --> C[Transactions]
+    C --> C1[Manual Entry]
+    C --> C2[Bulk SIP Generator]
+    C --> C3[CAS PDF Import]
+    C --> C4[Transaction Reversal]
+
+    WW --> D[Analytics]
+    D --> D1[Risk Profiling]
+    D --> D2[Volatility and Sharpe]
+    D --> D3[Fund Overlap Matrix]
+    D --> D4[Growth Timeline]
+
+    WW --> E[SIP Intelligence]
+    E --> E1[Active SIP Dashboard]
+    E --> E2[SIP vs Lumpsum]
+    E --> E3[Day Optimization]
+    E --> E4[Step-Up Projection]
+
+    WW --> F[Goal Planning]
+    F --> F1[Goal CRUD]
+    F --> F2[Monte Carlo 10K]
+    F --> F3[Deterministic Proj]
+    F --> F4[Required SIP Calc]
+
+    WW --> G[Scheme Data]
+    G --> G1[AMFI Seed 45K]
+    G --> G2[Scheme Search]
+    G --> G3[NAV Fetching]
+    G --> G4[NAV Caching]
 ```
 
 ### 2.3 User Classes and Characteristics

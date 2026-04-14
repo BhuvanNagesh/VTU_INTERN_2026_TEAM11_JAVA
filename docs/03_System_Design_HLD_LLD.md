@@ -157,34 +157,24 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    subgraph "Transport Security"
-        TLS["TLS 1.2+ (HTTPS enforced by Render)"]
-        HSTS["HSTS Header: max-age=31536000"]
-    end
+    A([HTTPS Request]) --> B[TLS 1.2 Transport - HSTS enforced]
+    B --> C[JwtAuthenticationFilter - OncePerRequestFilter]
+    C --> D{JWT Valid?}
+    D -->|No| E([401 Unauthorized])
+    D -->|Yes| F[Controller Layer]
 
-    subgraph "Authentication Layer"
-        JWT_F["JwtAuthenticationFilter<br/>(OncePerRequestFilter)"]
-        JWT_S["JwtService<br/>HMAC-SHA256 signing"]
-        BCRYPT["BCryptPasswordEncoder<br/>Cost factor: 10"]
-    end
+    F --> G[BCrypt Password Hashing - Cost Factor 10]
+    F --> H[PanCardEncryptor - AES-256-GCM at rest]
+    F --> I[OTP via SecureRandom - BCrypt hashed - 5min expiry]
+    F --> J[PAN masked as ABCDE-1234F in API responses]
+    F --> K[Response Headers]
+    F --> L[GlobalExceptionHandler - strips stack traces]
 
-    subgraph "Data Protection"
-        AES["PanCardEncryptor<br/>AES-256-GCM"]
-        OTP_H["OTP Hashing<br/>BCrypt (same encoder)"]
-        MASK["PAN Masking<br/>ABCDE****F"]
-    end
-
-    subgraph "Response Hardening"
-        XFO["X-Frame-Options: DENY"]
-        XCTO["X-Content-Type-Options: nosniff"]
-        XSS["X-XSS-Protection: 1; mode=block"]
-        RP["Referrer-Policy: strict-origin-when-cross-origin"]
-        CORS_H["CORS: Configured origins only"]
-    end
-
-    subgraph "Error Sanitization"
-        GEH["GlobalExceptionHandler<br/>Strips Java class paths from error messages"]
-    end
+    K --> K1[X-Frame-Options DENY]
+    K --> K2[X-Content-Type-Options nosniff]
+    K --> K3[X-XSS-Protection enabled]
+    K --> K4[Referrer-Policy strict-origin]
+    K --> K5[CORS allow-listed origins only]
 ```
 
 **Key Security Decisions:**
@@ -474,40 +464,34 @@ sequenceDiagram
     participant GEC as GoalEngineController
     participant GES as GoalEngineService
 
-    User->>FE: Click "Analyze Goal"
-    FE->>GEC: POST /api/learn/analyse<br/>{initialPortfolio, monthlyContribution,<br/>monthlyMean, monthlyStdDev,<br/>months, targetAmount, inflationRate}
+    User->>FE: Click Analyze Goal
+    FE->>GEC: POST /api/learn/analyse
 
-    GEC->>GEC: @Valid validation<br/>(constraints checked)
+    GEC->>GEC: Validate request fields
 
-    par Monte Carlo
-        GEC->>GES: runMonteCarlo(...)
-        GES->>GES: Run 10,000 simulations
-        loop 10,000 iterations
-            GES->>GES: Generate Gaussian random returns
-            GES->>GES: Apply floor limits
-            GES->>GES: Compound monthly
-        end
-        GES->>GES: Sort final values
-        GES->>GES: Extract P10/P50/P90
-        GES->>GES: Convert to real (today's money)
-        GES-->>GEC: MonteCarloResult
-    and Deterministic
-        GEC->>GES: runDeterministicProjection(...)
-        GES->>GES: FV corpus + FV SIP
-        GES->>GES: Deflate to real values
-        GES->>GES: Run 3 sensitivity scenarios
-        GES-->>GEC: DeterministicResult
-    and Required SIP
-        GEC->>GES: runRequiredSipCalculator(...)
-        GES->>GES: Compute inflation-adjusted target
-        GES->>GES: Solve for required SIP
-        GES->>GES: Compute lump sum alternative
-        GES->>GES: Compute extra months needed
-        GES-->>GEC: RequiredSipResult
+    GEC->>GES: runMonteCarlo(portfolio, sip, mean, stdDev, months, target)
+    loop 10000 iterations
+        GES->>GES: Generate Gaussian random monthly return
+        GES->>GES: Apply floor limit
+        GES->>GES: Compound corpus monthly
     end
+    GES->>GES: Sort final values - extract P10/P50/P90
+    GES->>GES: Deflate to real money (inflation-adjusted)
+    GES-->>GEC: MonteCarloResult (p10, p50, p90, successProbability)
 
-    GEC-->>FE: AnalyseResponse<br/>{monteCarlo, deterministic, requiredSip}
-    FE-->>User: Render analysis modal<br/>with charts and tables
+    GEC->>GES: runDeterministicProjection(portfolio, sip, returnRate, months)
+    GES->>GES: FV = corpus x (1+r)^n + SIP x FV annuity
+    GES->>GES: Run 3 sensitivity scenarios
+    GES-->>GEC: DeterministicResult (projected, gap, onTrack, scenarios)
+
+    GEC->>GES: runRequiredSipCalculator(target, corpus, months, returnRate)
+    GES->>GES: Solve required monthly SIP
+    GES->>GES: Compute lump sum equivalent today
+    GES->>GES: Compute extra months at current SIP rate
+    GES-->>GEC: RequiredSipResult (requiredSip, gap, lumpSum, extraMonths)
+
+    GEC-->>FE: AnalyseResponse with all three engine results
+    FE-->>User: Render Monte Carlo chart + sensitivity table + required SIP
 ```
 
 ---
