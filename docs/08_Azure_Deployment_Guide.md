@@ -58,7 +58,8 @@ graph TD
 | **OS** | Linux |
 | **URL** | `https://wealthwise-backend.azurewebsites.net` |
 | **Health Endpoint** | `GET /api/auth/health` → `{"status":"UP"}` |
-| **Always On** | Enabled |
+| **Always On** | Enabled (prevents idle shutdown on B1) |
+| **SCM Type** | None (GitHub Actions handles deployment) |
 
 ### 2.4 Frontend — Azure Static Web Apps
 
@@ -221,6 +222,10 @@ All backend secrets are stored in **Azure Portal → App Service → Configurati
 | `MAIL_USERNAME` | `<gmail-address>` | Gmail for OTP delivery |
 | `MAIL_PASSWORD` | `<gmail-app-password>` | Gmail App Password |
 | `CORS_ALLOWED_ORIGINS` | `https://delightful-sea-0a618fa10.7.azurestaticapps.net,http://localhost:5173` | Allowed frontend origins |
+| `WEBSITE_DNS_SERVER` | `168.63.129.16` | Azure internal DNS resolver (ensures outbound DNS works correctly) |
+| `SCM_DO_BUILD_DURING_DEPLOYMENT` | `false` | Disable Oryx build system — GitHub Actions handles the build |
+
+> **Important:** `SCM_DO_BUILD_DURING_DEPLOYMENT` must be `false` when deploying a pre-built JAR via GitHub Actions. If set to `true`, Azure's Oryx builder will try to re-build the source code and fail since there is no Maven available in the deployment slot.
 
 ### 5.2 Azure Spring Profile (application-azure.properties)
 
@@ -411,6 +416,28 @@ curl https://wealthwise-backend.azurewebsites.net/api/auth/health
 # Test frontend
 # Open in browser: https://delightful-sea-0a618fa10.7.azurestaticapps.net
 ```
+
+### Step 8: Enable Always On
+
+Always On prevents the App Service from going idle and ensures zero cold-start on B1:
+
+```powershell
+az webapp config set --name wealthwise-backend \
+  --resource-group wealthwise-rg --always-on true
+```
+
+---
+
+## 9. Why GitHub Actions Instead of Azure External Git SCM
+
+During initial setup, Azure's **External Git SCM** deployment was attempted (where Azure pulls source code directly from GitHub and builds it). This approach **was abandoned** because:
+
+| Issue | Detail |
+|---|---|
+| **No Maven available** | Azure's Oryx builder for Java installs Maven only for specific project structures. For a monorepo (`backend/` subfolder), it couldn't detect and build the Maven project. |
+| **JAR path mismatch** | When Azure runs its own build, the JAR lands at an unpredictable path. Custom startup commands like `java -jar /home/site/wwwroot/target/app.jar` failed with `Unable to access jarfile`. |
+| **No build logs** | External Git builds are opaque — hard to debug what Oryx is doing. |
+| **Solution** | Switch to GitHub Actions which builds on `ubuntu-latest` with a full JDK + Maven environment, then deploys the pre-built JAR directly to Azure via Zip Deploy. |
 
 ---
 
