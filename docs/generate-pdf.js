@@ -13,6 +13,7 @@ const docFiles = [
   '05_Deployment_Guide.md',
   '06_User_Manual.md',
   '07_Testing_Documentation.md',
+  '08_Azure_Deployment_Guide.md',
 ];
 
 // Read and combine all markdown files
@@ -328,8 +329,8 @@ const fullHtml = `<!DOCTYPE html>
   <div class="cover-divider"></div>
   <div class="cover-doc-title">Comprehensive Project Documentation</div>
   <div class="cover-meta">
-    Project Synopsis &bull; SRS &bull; System Design &bull; API Docs &bull; Deployment Guide &bull; User Manual &bull; Testing<br>
-    Spring Boot 3.2 &bull; React 19 &bull; PostgreSQL 15 &bull; Docker<br>
+    Project Synopsis &bull; SRS &bull; System Design &bull; API Docs &bull; Deployment Guide &bull; User Manual &bull; Testing &bull; Azure Deployment<br>
+    Spring Boot 3.2 &bull; React 19 &bull; PostgreSQL 15 &bull; Docker &bull; Microsoft Azure<br>
     <br>April 2026
   </div>
 </div>
@@ -361,6 +362,9 @@ const fullHtml = `<!DOCTYPE html>
     </li>
     <li>Testing Documentation
       <span class="toc-desc">280 Automated Tests, 15 Test Suites, Testcontainers, MSW, Playwright E2E, k6 Load Testing, OWASP, Storybook</span>
+    </li>
+    <li>Azure Deployment Guide
+      <span class="toc-desc">Azure App Service, Static Web Apps, GitHub Actions CI/CD, Service Principal, Supabase Pooler, Monitoring &amp; Troubleshooting</span>
     </li>
   </ol>
 </div>
