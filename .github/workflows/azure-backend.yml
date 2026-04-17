@@ -1,6 +1,6 @@
 # ─────────────────────────────────────────────────────────────────────────────
-# WealthWise — Deploy Spring Boot Backend to Azure App Service (Docker)
-# Trigger: push to main branch (changes in backend/ only)
+# WealthWise — Build & Deploy Spring Boot Backend to Azure App Service
+# Trigger: push to main branch (changes in backend/ only) + manual
 # ─────────────────────────────────────────────────────────────────────────────
 name: Deploy Backend to Azure
 
@@ -9,48 +9,45 @@ on:
     branches: [main]
     paths:
       - 'backend/**'
-  workflow_dispatch:  # manual trigger
+      - '.github/workflows/azure-backend.yml'
+  workflow_dispatch:  # manual trigger from GitHub Actions tab
 
 env:
-  AZURE_WEBAPP_NAME: wealthwise-backend   # ← Change to YOUR App Service name
-  REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}/wealthwise-backend
+  AZURE_WEBAPP_NAME: wealthwise-backend
+  JAVA_VERSION: '17'
 
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
 
     steps:
-      # ── 1. Checkout ──────────────────────────────────────────────────────
+      # ── 1. Checkout code ────────────────────────────────────────────────
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # ── 2. Log in to GitHub Container Registry ──────────────────────────
-      - name: Log in to GHCR
-        uses: docker/login-action@v3
+      # ── 2. Set up JDK 17 ───────────────────────────────────────────────
+      - name: Set up JDK ${{ env.JAVA_VERSION }}
+        uses: actions/setup-java@v4
         with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: 'temurin'
+          cache: 'maven'
 
-      # ── 3. Build & Push Docker image ────────────────────────────────────
-      - name: Build and push Docker image
-        uses: docker/build-push-action@v5
-        with:
-          context: ./backend
-          file: ./backend/Dockerfile
-          push: true
-          tags: |
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+      # ── 3. Build with Maven (in backend/ subfolder) ─────────────────────
+      - name: Build with Maven
+        run: mvn clean package -DskipTests
+        working-directory: ./backend
 
-      # ── 4. Deploy to Azure App Service ──────────────────────────────────
+      # ── 4. Rename JAR for Azure ─────────────────────────────────────────
+      - name: Prepare artifact
+        run: |
+          mkdir -p staging
+          cp backend/target/wealthwise-backend-0.0.1-SNAPSHOT.jar staging/app.jar
+
+      # ── 5. Deploy JAR to Azure App Service ──────────────────────────────
       - name: Deploy to Azure Web App
         uses: azure/webapps-deploy@v3
         with:
           app-name: ${{ env.AZURE_WEBAPP_NAME }}
           publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
-          images: '${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}'
+          package: staging/app.jar
