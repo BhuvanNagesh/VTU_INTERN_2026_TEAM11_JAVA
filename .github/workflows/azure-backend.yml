@@ -1,6 +1,7 @@
 # ─────────────────────────────────────────────────────────────────────────────
 # WealthWise — Build & Deploy Spring Boot Backend to Azure App Service
-# Trigger: push to main branch (changes in backend/ only) + manual
+# Uses OIDC (Federated Credentials) — no publish profile needed
+# Trigger: push to main branch (changes in backend/) + manual
 # ─────────────────────────────────────────────────────────────────────────────
 name: Deploy Backend to Azure
 
@@ -15,6 +16,10 @@ on:
 env:
   AZURE_WEBAPP_NAME: wealthwise-backend
   JAVA_VERSION: '17'
+
+permissions:
+  id-token: write
+  contents: read
 
 jobs:
   build-and-deploy:
@@ -38,16 +43,15 @@ jobs:
         run: mvn clean package -DskipTests
         working-directory: ./backend
 
-      # ── 4. Rename JAR for Azure ─────────────────────────────────────────
-      - name: Prepare artifact
-        run: |
-          mkdir -p staging
-          cp backend/target/wealthwise-backend-0.0.1-SNAPSHOT.jar staging/app.jar
+      # ── 4. Login to Azure ───────────────────────────────────────────────
+      - name: Login to Azure
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
 
       # ── 5. Deploy JAR to Azure App Service ──────────────────────────────
       - name: Deploy to Azure Web App
         uses: azure/webapps-deploy@v3
         with:
           app-name: ${{ env.AZURE_WEBAPP_NAME }}
-          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
-          package: staging/app.jar
+          package: backend/target/wealthwise-backend-0.0.1-SNAPSHOT.jar
