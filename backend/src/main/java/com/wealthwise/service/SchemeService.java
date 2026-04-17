@@ -92,39 +92,48 @@ public class SchemeService {
                 result = parser.parse(is);
             }
 
-            for (Scheme incoming : result.schemes) {
-                try {
-                    Optional<Scheme> existing = schemeRepository.findByAmfiCode(incoming.getAmfiCode());
-                    if (existing.isPresent()) {
-                        Scheme s = existing.get();
-                        // Update mutable fields — critically category + risk
-                        s.setSchemeName(incoming.getSchemeName());
-                        s.setAmcName(incoming.getAmcName());
-                        s.setIsActive(incoming.getIsActive());
-                        s.setLastNav(incoming.getLastNav());
-                        s.setLastNavDate(incoming.getLastNavDate());
-                        s.setIsinGrowth(incoming.getIsinGrowth());
-                        s.setIsinIdcw(incoming.getIsinIdcw());
-                        s.setPlanType(incoming.getPlanType());
-                        s.setOptionType(incoming.getOptionType());
-                        s.setFundType(incoming.getFundType());
-                        // Set category + risk (the key improvement)
-                        if (incoming.getBroadCategory() != null)
-                            s.setBroadCategory(incoming.getBroadCategory());
-                        if (incoming.getSebiCategory() != null)
-                            s.setSebiCategory(incoming.getSebiCategory());
-                        if (incoming.getRiskLevel() != null)
-                            s.setRiskLevel(incoming.getRiskLevel());
-                        schemeRepository.save(s);
-                        updated++;
-                    } else {
-                        schemeRepository.save(incoming);
-                        inserted++;
+            // Process in batches of 200 to prevent connection timeouts on Supabase/Render
+            int batchSize = 200;
+            List<Scheme> schemes = result.schemes;
+            for (int i = 0; i < schemes.size(); i += batchSize) {
+                int end = Math.min(i + batchSize, schemes.size());
+                List<Scheme> batch = schemes.subList(i, end);
+                for (Scheme incoming : batch) {
+                    try {
+                        Optional<Scheme> existing = schemeRepository.findByAmfiCode(incoming.getAmfiCode());
+                        if (existing.isPresent()) {
+                            Scheme s = existing.get();
+                            // Update mutable fields — critically category + risk
+                            s.setSchemeName(incoming.getSchemeName());
+                            s.setAmcName(incoming.getAmcName());
+                            s.setIsActive(incoming.getIsActive());
+                            s.setLastNav(incoming.getLastNav());
+                            s.setLastNavDate(incoming.getLastNavDate());
+                            s.setIsinGrowth(incoming.getIsinGrowth());
+                            s.setIsinIdcw(incoming.getIsinIdcw());
+                            s.setPlanType(incoming.getPlanType());
+                            s.setOptionType(incoming.getOptionType());
+                            s.setFundType(incoming.getFundType());
+                            // Set category + risk (the key improvement)
+                            if (incoming.getBroadCategory() != null)
+                                s.setBroadCategory(incoming.getBroadCategory());
+                            if (incoming.getSebiCategory() != null)
+                                s.setSebiCategory(incoming.getSebiCategory());
+                            if (incoming.getRiskLevel() != null)
+                                s.setRiskLevel(incoming.getRiskLevel());
+                            schemeRepository.save(s);
+                            updated++;
+                        } else {
+                            schemeRepository.save(incoming);
+                            inserted++;
+                        }
+                    } catch (Exception e) {
+                        skipped++;
+                        log.warn("[Seed] Skipped {}: {}", incoming.getAmfiCode(), e.getMessage());
                     }
-                } catch (Exception e) {
-                    skipped++;
-                    log.warn("[Seed] Skipped {}: {}", incoming.getAmfiCode(), e.getMessage());
                 }
+                // Flush each batch to avoid holding stale connections too long
+                schemeRepository.flush();
             }
 
             String msg = "Seed complete: " + inserted + " inserted, " + updated + " updated, " + skipped + " skipped";

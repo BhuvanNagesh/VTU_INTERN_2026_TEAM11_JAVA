@@ -47,7 +47,12 @@ public class SchemeReconciliationService {
     private final RestTemplate rt;
 
     public SchemeReconciliationService() {
-        this.rt = new RestTemplate();
+        // Configure timeouts to prevent indefinite hangs on mfapi.in calls
+        org.springframework.http.client.SimpleClientHttpRequestFactory factory =
+            new org.springframework.http.client.SimpleClientHttpRequestFactory();
+        factory.setConnectTimeout(10_000);  // 10s connect
+        factory.setReadTimeout(15_000);     // 15s read
+        this.rt = new RestTemplate(factory);
         this.rt.getMessageConverters().add(0,
             new StringHttpMessageConverter(StandardCharsets.UTF_8));
     }

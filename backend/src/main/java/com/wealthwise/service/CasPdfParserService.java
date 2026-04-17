@@ -600,6 +600,7 @@ public class CasPdfParserService {
             folio.transactions.size(), folio.folioNumber,
             folio.schemeName != null ? folio.schemeName : amfiCode);
         for (TxRow row : folio.transactions) {
+            try {
             String type = detectType(row.description);
             log.debug("[CAS]   #{} {} | {} | amt={} units={} nav={}",
                 count + 1, row.date, type, row.amount, row.units, row.nav);
@@ -647,6 +648,10 @@ public class CasPdfParserService {
                 consumeLotsFifo(userId, amfiCode, folio.folioNumber, row.units.abs());
             }
             count++;
+            } catch (Exception e) {
+                log.warn("[CAS] Failed to save transaction #{} for folio #{}: {}",
+                    count + 1, folio.folioNumber, e.getMessage());
+            }
         }
         if (folio.transactions.size() > 0 && count == 0) {
             log.warn("[CAS] WARNING: {} transactions were parsed but 0 were saved for folio #{}. Check for DB errors above.",
@@ -747,6 +752,12 @@ public class CasPdfParserService {
             rt.getMessageConverters().add(0,
                 new org.springframework.http.converter.StringHttpMessageConverter(
                     java.nio.charset.StandardCharsets.UTF_8));
+            // Set connect/read timeouts to prevent indefinite hanging on mfapi.in
+            org.springframework.http.client.SimpleClientHttpRequestFactory factory =
+                new org.springframework.http.client.SimpleClientHttpRequestFactory();
+            factory.setConnectTimeout(10000);
+            factory.setReadTimeout(15000);
+            rt.setRequestFactory(factory);
 
             String json = rt.getForObject(url, String.class);
             if (json == null || json.isBlank() || json.equals("[]")) return null;

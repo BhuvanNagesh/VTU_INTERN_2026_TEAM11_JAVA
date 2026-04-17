@@ -54,7 +54,17 @@ public class NavService {
         inflight = new ConcurrentHashMap<>();
 
     private final ObjectMapper objectMapper = new ObjectMapper();
-    private final RestTemplate restTemplate = new RestTemplate();
+    private final RestTemplate restTemplate;
+
+    {
+        // Configure RestTemplate with connect/read timeouts to prevent indefinite hangs
+        // when mfapi.in is slow or unresponsive (which would also hold DB connections open)
+        org.springframework.http.client.SimpleClientHttpRequestFactory factory =
+            new org.springframework.http.client.SimpleClientHttpRequestFactory();
+        factory.setConnectTimeout(10_000);  // 10s connect timeout
+        factory.setReadTimeout(15_000);     // 15s read timeout
+        restTemplate = new RestTemplate(factory);
+    }
 
     @Autowired
     private SchemeRepository schemeRepo;
@@ -260,15 +270,20 @@ public class NavService {
     }
 
     /**
-     * Persists NAV history to DB using native INSERT ON CONFLICT DO NOTHING.
-     * This is atomic and eliminates duplicate key violations under concurrent
-     * requests (race condition where multiple threads all miss the cache).
+     * Persists NAV history to DB using batched native INSERT ON CONFLICT DO NOTHING.
+     * Sends up to BATCH_SIZE rows per SQL round-trip to avoid overwhelming the
+     * remote connection (Supabase/Render close long-running SSL sockets).
+     * Includes retry logic for transient connection resets.
      */
-    @Transactional
+    private static final int BATCH_SIZE = 500;
+    private static final int MAX_RETRIES = 3;
+
     public void persistNavHistoryToDB(String amfiCode, List<Map<String, String>> data) {
         if (data == null || data.isEmpty()) return;
         DateTimeFormatter fmt = DateTimeFormatter.ofPattern("dd-MM-yyyy");
-        int saved = 0;
+
+        // ── Parse all valid entries first (no DB calls) ──────────────────────
+        List<Object[]> parsed = new ArrayList<>();
         for (Map<String, String> entry : data) {
             String dateStr = entry.getOrDefault("date", "");
             String navStr  = entry.getOrDefault("nav", "");
@@ -276,16 +291,56 @@ public class NavService {
             try {
                 LocalDate navDate = LocalDate.parse(dateStr, fmt);
                 BigDecimal navVal = new BigDecimal(navStr);
-                // Use native upsert-ignore: atomic, no race condition
-                int rows = navHistoryRepo.upsertIgnore(amfiCode, navDate, navVal);
-                saved += rows;
+                parsed.add(new Object[]{navDate, navVal});
             } catch (Exception e) {
                 // Skip malformed entries silently
             }
         }
-        if (saved > 0) {
-            log.info("[NAV] Persisted {} new NAV records to DB for {}", saved, amfiCode);
+        if (parsed.isEmpty()) return;
+
+        // ── Batch-insert in chunks with retry ────────────────────────────────
+        int totalSaved = 0;
+        for (int i = 0; i < parsed.size(); i += BATCH_SIZE) {
+            List<Object[]> batch = parsed.subList(i, Math.min(i + BATCH_SIZE, parsed.size()));
+            int saved = persistBatchWithRetry(amfiCode, batch);
+            totalSaved += saved;
         }
+        if (totalSaved > 0) {
+            log.info("[NAV] Persisted {} new NAV records to DB for {}", totalSaved, amfiCode);
+        }
+    }
+
+    /**
+     * Persists a single batch of NAV records with retry on transient DB errors.
+     */
+    @Transactional
+    private int persistBatchWithRetry(String amfiCode, List<Object[]> batch) {
+        for (int attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+            try {
+                int saved = 0;
+                for (Object[] row : batch) {
+                    LocalDate navDate = (LocalDate) row[0];
+                    BigDecimal navVal = (BigDecimal) row[1];
+                    saved += navHistoryRepo.upsertIgnore(amfiCode, navDate, navVal);
+                }
+                return saved;
+            } catch (Exception e) {
+                String msg = e.getMessage() != null ? e.getMessage() : "";
+                boolean isTransient = msg.contains("Connection reset")
+                        || msg.contains("I/O error")
+                        || msg.contains("connection has been closed")
+                        || msg.contains("SQLSTATE(08");
+                if (isTransient && attempt < MAX_RETRIES) {
+                    log.warn("[NAV] Transient DB error on batch for {} (attempt {}/{}), retrying in {}s: {}",
+                            amfiCode, attempt, MAX_RETRIES, attempt, msg);
+                    try { Thread.sleep(attempt * 1000L); } catch (InterruptedException ie) { Thread.currentThread().interrupt(); }
+                } else {
+                    log.error("[NAV] Failed to persist batch for {} after {} attempts: {}", amfiCode, attempt, msg);
+                    return 0;
+                }
+            }
+        }
+        return 0;
     }
 
     /**
